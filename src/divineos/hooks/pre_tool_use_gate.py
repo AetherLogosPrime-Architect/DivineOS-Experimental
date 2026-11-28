@@ -1,57 +1,30 @@
-"""Consolidated PreToolUse gate — single Python invocation for all gate checks.
+"""Consolidated PreToolUse gate: one Python invocation for every gate check.
 
-# AGENT_RUNTIME — Not wired into CLI pipeline. Invoked from
-# .claude/hooks/require-goal.sh as ``python -m divineos.hooks.pre_tool_use_gate``.
-# This module exists to collapse the multiple Python invocations the old
-# require-goal.sh was making (5+ separate ``python -c "..."`` calls, each
-# paying ~200ms of interpreter startup + DivineOS import cost on Windows)
-# into a single interpreter run that checks all gates and emits a single
-# decision JSON.
+Invoked from .claude/hooks/require-goal.sh as ``python -m divineos.hooks.pre_tool_use_gate`` (not
+wired into the CLI pipeline). One interpreter run replaces the old five-plus ``python -c`` calls,
+each of which paid ~200ms of startup plus import cost: hook time per tool call fell from ~1.2s to
+~200-300ms.
 
-## Why this exists
+Order in main(): ownership block, bypass check (read-only and bootstrap commands skip every gate),
+overdue-prereg block, then _check_gates, first deny wins: 0 exploration tag and numbering walls; 1
+briefing recall; 1.2 mansion quiet; 1.4 compass staleness; 1.45 hedge; 1.47 compass after a virtue
+event; 1.48 stale engagement; 1.5 unlogged correction; then the soft cluster (2 goal, 3 pull, 4
+engagement as measurement only, 4.5 consultation) whose denials are combined into one message; 6
+retry blocker; 7 context governor.
 
-The previous require-goal.sh made five sequential Python invocations:
-``divineos preflight`` + 4 direct ``python -c "from divineos.core...."``
-shells. Each paid roughly 150-250ms of Python startup plus another
-50-200ms of DivineOS import. On Windows with Git Bash, measured
-hook-total time was ~1.2s per Bash/Edit tool call. For a response
-making 5 tool calls, that's 5-6 seconds of pure hook overhead
-before anything productive happens.
+Output: a JSON decision on stdout, empty stdout = allow, always exit 0 (Claude Code carries the
+decision in the JSON, not the exit code). Machinery that fails open does so on purpose and says so
+(see _record_gate_failure).
 
-This module runs all the gate checks in one interpreter invocation.
-Imports happen once. Heavy DB opens happen once (or not at all — the
-gates read cached state). Total hook time drops to ~200-300ms per
-call. Savings compound across every tool call a response makes.
-
-## Gate order (all-or-nothing — first deny wins)
-
-1. Bypass check (read-only / bootstrap commands skip all gates)
-2. Briefing-loaded gate
-3. Session-fresh goal gate
-4. Pull-detection gate (fabrication markers)
-5. Engagement gate (light + deep tiers)
-6. External-audit cadence gate
-
-Returns a JSON decision to stdout. Empty stdout = allow. Non-empty =
-deny with the packaged reason. Always exits 0 (the decision is carried
-in the JSON, not the exit code — Claude Code's hook protocol).
-
-## Not a logic change
-
-This is a pure refactor — same gates, same order, same decision
-content as the old shell script. The only change is consolidation of
-process spawns into one. If a gate's logic ever changes, both the old
-shell fallback and this module must be updated together until the
-shell fallback is deleted.
+The older history behind these notes is archived at
+docs/archives/code_notes/pre_tool_use_gate_notes_2026-11-06.md.
 """
 
 from __future__ import annotations
 
-# Module-level guardrail marker — Aletheia Finding 48 class-fix
-# 2026-05-14. CI test (tests/test_guardrail_marker_consistency.py)
-# walks src/ and asserts every file with this marker set to True is
-# listed in scripts/guardrail_files.txt. Prevents the next refactor
-# from silently removing self-enforcement code from multi-party review.
+# Guardrail marker: tests/test_guardrail_marker_consistency.py asserts every file marked True is
+# listed in scripts/guardrail_files.txt, so a refactor cannot silently drop this self-enforcement
+# code from multi-party review.
 __guardrail_required__ = True
 
 import json
@@ -64,13 +37,9 @@ from typing import Any
 from divineos.core.command_parsing import CD, blank_quoted_spans, strip_prefixes_raw
 
 
-# Chain-shape metacharacters that indicate shell-chain composition.
-# Used by _is_safe_remedy_invocation to reject exemption when a remedy
-# command has an appended chain (e.g. `remedy && rm -rf ~`). Semicolon
-# and && / || / backtick / $() only count as chain-operators when they
-# appear OUTSIDE quoted strings — a semicolon inside a quoted argument
-# is ordinary text and must not break the exemption. See council walk
-# council-2ad91226ebe7 (schneier + popper + meadows, 2026-07-21).
+# Chain-shape metacharacters (;, &&, ||, backtick, $(). They count as chain operators only OUTSIDE
+# quotes: a semicolon inside a quoted argument is ordinary text and must not break the remedy
+# exemption. Used by _is_safe_remedy_invocation.
 _CHAIN_SHAPE_METACHARS: tuple[str, ...] = (";", "&&", "||", "`", "$(")
 
 
@@ -119,25 +88,14 @@ def _strip_shell_quoted(cmd: str) -> str:
 
 
 def _has_unquoted_chain_shape(cmd: str) -> bool:
-    r"""Return True iff cmd contains a chain-shape metachar OUTSIDE quotes.
+    r"""Return True iff cmd contains a chain-shape metachar OUTSIDE quotes. Quoted content is replaced
+    by a placeholder first, so a real chain like `remedy && rm -rf ~` is told apart from punctuation
+    in a quoted argument like `divineos correction "gates never retired; only fixed"`. Fail-CLOSED:
+    an unclosed quote counts as chain-shape present.
 
-    Strips the content of quoted regions first (leaving a placeholder),
-    then runs the chain-shape regex on the outside-quotes structure.
-    This distinguishes a real shell chain like `remedy && rm -rf ~`
-    from ordinary punctuation in a quoted arg like
-    `divineos correction "gates never retired; only fixed"`.
-
-    Fail-CLOSED: if a quote is unclosed (malformed), treat as chain-
-    shape present. Rejecting a malformed command from the exemption
-    path is safer than allowing it.
-
-    Test cases owed (Popper falsifiers, council-2ad91226ebe7):
-      * `divineos correction "text; with semi"` -> False (safe)
-      * `divineos correction "text" && rm -rf ~` -> True (chain)
-      * divineos correction "text" `whoami` -> True (backtick sub)
-      * `divineos correction "text" $(whoami)` -> True (command sub)
-      * `divineos correction "text" | tail` -> False (pipe is allowed)
-      * `divineos correction "unclosed` -> True (fail-closed)
+    Pinned by tests/test_pre_tool_use_gate_remedy_exemption.py: a quoted semicolon is safe; `&& rm`,
+    a backtick substitution and `$(...)` are chains; a pipe is allowed; an unclosed quote is a
+    chain.
     """
     try:
         stripped = _strip_shell_quoted(cmd)
@@ -156,24 +114,14 @@ _LEADING_CD_RE = re.compile(
     """,
     re.VERBOSE,
 )
-# The bare-path branch demands whitespace before `&&`, and that requirement
-# is load-bearing (caught by test_metachar_paths_are_not_stripped, 2026-08-01).
-# Without it, `cd /tmp&&rm && divineos correction "x"` matches `/tmp` as the
-# path — the character class halts at the `&` — consumes the first `&&`, and
-# silently leaves `rm` at the head. The command was still REFUSED downstream,
-# so this was never exploitable; but the docstring promised metachar paths go
-# untouched and the code did touch them. A security matcher whose stated
-# invariant is false is worth fixing even when the current behaviour happens
-# to be safe, because the next reader will rely on the promise.
-# Not stripping is always the safe direction: an unstripped prefix fails the
-# head check, which refuses. Stripping wrongly is what could ever permit.
+# The bare-path branch demands whitespace before `&&`, and that requirement is load-bearing
+# (test_metachar_paths_are_not_stripped). Without it, `cd /tmp&&rm && divineos correction "x"`
+# strips a wrong prefix and leaves `rm` at the head. Not stripping is always the safe direction (an
+# unstripped prefix fails the head check and refuses); stripping wrongly is what could ever permit.
 
 
-# Characters that must not appear in a prefix the gate is willing to discard.
-# Literal tuple rather than a pattern, deliberately: the keyword-enforcement
-# doorman's own worked example is a careful exception-argument for a regex that
-# turned out not to be needed, and this is that case. Nothing here needs
-# matching — it needs membership.
+# Characters that must not appear in a prefix the gate is willing to discard. A literal tuple, not a
+# pattern: nothing here needs matching, it needs membership.
 _UNSAFE_IN_DISCARDED_PREFIX = (">", "<", "`", "$", "(", ")", ";", "|", "&")
 
 
@@ -190,58 +138,27 @@ def _strip_leading_cd(cmd: str) -> str:
 
 
 def _is_safe_remedy_invocation(cmd: str, allowed_heads: tuple[str, ...]) -> bool:
-    """Return True iff cmd is a legitimate invocation of a remedy command.
-
-    Rules:
-      1. cmd (before any pipe) must start with one of allowed_heads.
-      2. cmd must NOT contain a chain-shape metachar outside quotes.
-      3. Pipe (|) is allowed after the remedy (piping to head/tail is a
-         common concrete case that this exemption exists to permit).
-
-    Shared helper factored from the compass exemption (line ~1063) and
-    correction exemption (line ~1152) per Meadows walk council-
-    2ad91226ebe7: the code comment at line 1140 predicted the refactor
-    was owed after the third instance; my Catch-22 hit is that instance.
+    """Return True iff cmd is a legitimate invocation of a remedy command: (1) cmd before any pipe
+    starts with one of allowed_heads; (2) no chain-shape metachar outside quotes; (3) a pipe after
+    the remedy is allowed (piping to head or tail is the common case). Shared by the compass and
+    correction exemptions.
     """
     if not cmd:
         return False
 
-    # LEADING-CD CATCH-22 (Aria 2026-08-01, confirmed by controlled test), and
-    # its supersession. The local `_strip_leading_cd` that used to sit here was
-    # the same repair as the shared one below, arrived at independently; main's
-    # is the version that survives, so this comment keeps the incident and the
-    # code takes strip_prefixes_raw. Merged 2026-08-24.
+    # Leading-cd handling. The remedy must be the FIRST thing in the command, but a habitual `cd
+    # "<repo>" && divineos correction "..."` puts `cd` in head position, which blocked the very
+    # command the gate's own message tells me to run. There are TWO barriers and both must be
+    # handled: the head check, and the chain-shape check (`cd X && ...` genuinely is a chain). So
+    # prefixes come off with strip_prefixes_raw (quoting preserved) and BOTH checks run on the same
+    # real command. Re-joining shlex tokens instead would lose the quoting and turn a semicolon
+    # inside an evidence string into a false chain.
     #
-    # The rule above requires the remedy to be the FIRST thing in the command.
-    # A habitual `cd "<repo>" && divineos correction "..."` puts `cd` in the
-    # head position, so the exemption never matched and the gate BLOCKED THE
-    # VERY COMMAND ITS OWN MESSAGE INSTRUCTS ME TO RUN. Perfect deadlock:
-    # cannot clear the marker, cannot file the correction, and the block text
-    # names both as the way out.
-    #
-    # I hypothesised exactly this hours before proving it, then RETRACTED it
-    # untested because the next attempt hit a different gate stacked behind
-    # this one and I read that as disproof (correction #80 — a correct
-    # diagnosis withdrawn without a control). The confirming test was one
-    # command: identical invocation, prefix removed, ran clean.
-    #
-    # 2026-08-19 (Aletheia F114). This gate is where "the head of a command is
-    # not its first character" has bitten most often — `cd X && divineos Y`
-    # rejected while bare `divineos Y` passed, twice in July and again on 08-18.
-    # The shared home for that rule existed and this module, its largest
-    # consumer, was not importing it.
-    #
-    # Her prescribed fix was "import it and delete the local copy." That alone
-    # does not close it, and the reason is worth keeping: there were TWO
-    # barriers, not one. The head check rejected the command, AND the
-    # chain-shape check rejected it independently, because `cd X && ...`
-    # genuinely IS a chain. Fixing only the head leaves the gate still wrong.
-    #
-    # Nor can the chain check simply run on stripped_command(): that re-joins
-    # shlex tokens and loses the quoting, so a semicolon inside an evidence
-    # string comes back out naked and a legitimate remedy gets rejected.
-    # Hence strip_prefixes_raw — prefixes off, quoting preserved — and BOTH
-    # checks then run against the same real command.
+    # The shared stripper is wider than this gate may be: it removes EVERY leading cd whatever the
+    # path holds, so `cd a && cd b && remedy` or a path hiding a redirection came back a bare remedy
+    # and was allowed. Here only ONE leading cd is discarded, and a prefix containing any of > < ` $
+    # ( ) ; | & is not discarded. The narrowness lives here, not in the shared module, because other
+    # callers want the liberal reading and this gate must not have it.
     real = strip_prefixes_raw(cmd)
     if not real:
         return False
@@ -280,19 +197,12 @@ def _is_safe_remedy_invocation(cmd: str, allowed_heads: tuple[str, ...]) -> bool
     return True
 
 
-# The bell is a listener, not work: it writes only its own dotfiles and decides
-# nothing. Dad had to ask 24 times for it to stay on, and three re-arms on
-# 2026-10-03 were refused by the goal and consult checks during quiet talk.
-# Exact command only -- repo path, one seat word, no pipe, no chain.
-# Walk council-7de9f00cec42.
-#
-# Tightened after Aletheia's audit (walk council-0d96371ec724). The bell writes
-# an owner file for whatever seat it is handed, and a replaced bell leaves
-# without ringing, so `letter_doorbell.sh aria` run from my seat silently stops
-# hers while every check reports both healthy. The word must be THIS seat.
-# And the script path is relative, so a leading `cd` elsewhere runs some other
-# checkout's copy ungated: the cd may only land on this repository's root.
-# Either unknown means held.
+# The letter bell is a listener, not work: it writes only its own dotfiles and decides nothing, and
+# Dad had to ask 24 times for it to stay on, so re-arming it passes this gate. Exact command only:
+# this repo's script path, ONE seat word, no pipe, no chain. The word must be THIS seat (a bell run
+# for another seat silently replaces her bell while every check reports healthy), and a leading cd
+# may only land on this repository's root (the script path is relative, so a cd elsewhere would run
+# another checkout's copy ungated). Either unknown means held.
 _DOORBELL_RE = re.compile(r"^bash (?:\./)?scripts/letter_doorbell\.sh ([a-z]+)$")
 
 
@@ -336,25 +246,12 @@ def _is_doorbell_rearm(cmd: str) -> bool:
 
 
 def _load_bypass_subcommands() -> frozenset[str]:
-    """Load the canonical bypass-list from scripts/hook_bypass_commands.txt.
-
-    2026-06-09 fix (task #98 locked-box trap): the bypass-list used to be
-    inlined here, which meant other PreToolUse Bash hooks (require-
-    ear-armed.sh, etc.) couldn't share it — they'd block documented
-    bypass commands before they reached this Python module. Now BOTH
-    this module AND .claude/hooks/_lib.sh's is_bypass_command read from
-    the same canonical file. Single source of truth, no duplication
-    drift. Council walk consult-ba0fc4337e51 (Dekker + Lamport): the
-    trap was drift-into-failure from accreted-not-designed gate
-    layering.
-
-    File format: one ``divineos <subcommand>`` prefix per line, ``#``
-    for comments, blank lines ignored. We extract just the subcommand
-    after ``divineos `` for fast set-membership check on the matched
-    regex group.
-
-    Fail-soft: if the file is missing or unreadable, return the
-    bootstrap-essential minimum so the system stays bootable.
+    """Load the canonical bypass list from scripts/hook_bypass_commands.txt: one ``divineos
+    <subcommand>`` per line, ``#`` comments, blank lines ignored; only the subcommand word is kept.
+    One source of truth shared with .claude/hooks/_lib.sh is_bypass_command, so other PreToolUse
+    hooks cannot drift from it (they once blocked documented bypass commands before this module saw
+    them). Fail-soft: a missing or unreadable file returns the bootstrap minimum so the system stays
+    bootable.
     """
     from pathlib import Path
 
@@ -402,30 +299,11 @@ _DEV_PREFIXES = (
     "ruff ",
 )
 
-# Match "divineos <subcmd>" — requires a subcommand word after divineos.
-#
-# 2026-06-17 fix: also match "divineos.exe <subcmd>" (Windows venv path
-# form). Aether and Aria both hit a gate-deadlock the day this was filed
-# when invoking divineos via the full venv path (e.g.
-# `"./.venv/Scripts/divineos.exe" goal add "..."`). The previous regex
-# required `divineos` directly followed by whitespace, so the .exe form
-# never matched the bypass list — gate-clearing commands like `goal add`
-# and `ask` blocked themselves because the bypass-list lookup didn't fire.
-# Adding the optional `.exe` and the optional closing quote handles both
-# bare invocations and quoted-path invocations.
-#
-# 2026-07-16 fix (Aletheia Round 2 Finding 22, keyword-vs-shape master):
-# the previous version used `.search()`, matching the pattern ANYWHERE in
-# the command. That let `divineos briefing; rm -rf /tmp/x` bypass all
-# gates because "briefing" appeared as a substring. The fix is two-fold:
-# (a) compound-command detection — any shell metacharacter that would
-#     chain commands means we're not looking at a simple bypass, so we
-#     refuse the bypass path and fall through to normal gates
-# (b) anchored `.match()` — a bypass only counts if the command STARTS
-#     with (optional path prefix +) divineos + safe subcmd. A safe word
-#     appearing mid-command is not a safe command.
-# See Aletheia's F22 for the "allow narrowly, deny broadly" template the
-# corrigibility gate already implements correctly.
+# Match `divineos <subcmd>`, also `divineos.exe` (the Windows venv path form), optionally quoted and
+# path-prefixed, e.g. `"./.venv/Scripts/divineos.exe" goal add`. ANCHORED with .match(), never
+# .search(): a safe word appearing mid-command is not a safe command (`divineos briefing; rm -rf
+# /tmp/x` must not bypass). Compound commands are refused separately by _has_compound_shape. The
+# template: allow narrowly, deny broadly.
 _DIVINEOS_SUBCMD_RE = re.compile(
     # optional leading whitespace, optional (possibly quoted) path prefix
     # ending in / or \, then divineos with optional .exe and optional
@@ -436,17 +314,13 @@ _DIVINEOS_SUBCMD_RE = re.compile(
     r"\s+(\w[\w-]*)"
 )
 
-# Shell metacharacters that chain / pipe / substitute — if any of these
-# appear in the command, we are NOT looking at a simple divineos
-# invocation, and the bypass path must not apply. The bypass is for
-# "run this specific safe command," not "run this safe command AND
-# whatever follows." F22 tests all pass after adding this check.
+# Shell metacharacters that chain, pipe or substitute. If any appear, this is not a simple bypass:
+# the bypass is for 'run this safe command', not 'run this safe command AND whatever follows'.
 _SHELL_COMPOUND_CHARS = (";", "&&", "||", "|", "`", "$(")
 
 
-# Character constants for the quote-context scanner below. Named rather
-# than inlined so the scanner reads as shell-semantics rather than as a
-# wall of escaped punctuation.
+# Named character constants, so the quote-context scanner below reads as shell semantics and not as
+# a wall of escaped punctuation.
 _SQ = chr(39)  # single quote
 _DQ = chr(34)  # double quote
 _BACKTICK = chr(96)
@@ -456,32 +330,19 @@ _QUOTE_CHARS = (_SQ, _DQ)
 # Chaining / piping operators. Inert inside either kind of quote.
 _UNQUOTED_OPERATOR_CHARS = (chr(59), chr(124), _BACKTICK)
 
-# Ampersand is handled separately from the tuple above. It is an operator
-# when it chains (doubled) or backgrounds, but NOT when it is part of a
-# file-descriptor redirect: `2>&1` is a redirect, and the whole point of
-# PR #400 was to keep that shape a bypass candidate. The pre-2026-08-01
-# substring scan only ever looked for the DOUBLED form, so listing a bare
-# ampersand as an operator here regressed three of #400's tests. Caught by
-# the pre-push suite; discriminator is the preceding character.
+# The ampersand is handled apart from the operator tuple: it is an operator when doubled (chains) or
+# when it backgrounds, but `2>&1` is an fd redirect and must stay a bypass candidate. The
+# discriminator is the preceding character.
 _AMP = chr(38)
 _REDIRECT = chr(62)  # '>' — what precedes the ampersand in an fd redirect
 
 
 def _has_compound_shape(cmd: str) -> bool:
-    """True if the command contains shell-metacharacters that would
-    chain, pipe, or substitute — meaning it is NOT a simple bypass
-    candidate. Aletheia F22 fix: even a command starting with a safe
-    subcommand may not bypass if it chains into a dangerous one.
-
-    2026-08-01: replaced a raw-string substring scan with an explicit
-    quote-state scanner, so operator characters appearing inside a
-    quoted argument value no longer defeat a bypass the subcommand
-    qualifies for. This is the structural parser Aletheia recommended
-    at F31. Full rationale, the exploit cases it must still catch, and
-    why not shlex: docs/gate_quote_context_parser_2026-08-01.md
-    Filed as claim 09213383; design walk ebcf9db6.
-
-    Fails CLOSED on an unterminated quote.
+    """True if the command contains shell metacharacters that chain, pipe or substitute, so it is NOT a
+    simple bypass candidate (even a safe head may chain into a dangerous tail). An explicit
+    quote-state scanner, so operator characters inside a quoted argument do not defeat a bypass the
+    subcommand qualifies for. Rationale, exploit cases and why not shlex:
+    docs/gate_quote_context_parser_2026-08-01.md. Fails CLOSED on an unterminated quote.
     """
     state: str | None = None
     i = 0
@@ -524,70 +385,31 @@ def _has_compound_shape(cmd: str) -> bool:
     return state is not None
 
 
-# Match a leading `cd DIR && ` prefix where DIR is either a quoted
-# path or a token free of shell-metacharacters. F22-regression fix
-# (2026-07-16): every Bash tool call in this codebase starts with
-# `cd "path" && ...` to set working directory. The F22 compound-
-# command check refused bypass on ALL of those, deadlocking the
-# session. `cd` is the one legitimate compound-prefix — it changes
-# working directory without executing anything else — and only in
-# this specific shape (quoted OR safe-token, followed by `&&`).
-#
-# 2026-07-16 F31 fix (Aletheia same-day catch): the initial regression
-# fix allowed ANY non-quote content inside the quoted-DIR branch.
-# That let `cd "$(rm -rf /)" && divineos ask` bypass — shell expands
-# `$(...)` INSIDE double-quotes before `cd` runs, so the substitution
-# payload executes as part of cd's argument evaluation. Exclude `$`
-# and backtick (the two shell-metachars that expand inside double
-# quotes) from the quoted-DIR content too. `;` and `&&` inside quotes
-# are inert; only substitution is dangerous. Aletheia also recommended
-# a longer-term shlex-based structural parser over regex-ing shell —
-# filed as follow-up prereg; this is the tactical block on the exploit.
+# A leading `cd DIR && ` prefix, DIR being a quoted path or a token free of shell metacharacters.
+# Every Bash call starts with `cd "path" && ...`, and `cd` is the one legitimate compound prefix: it
+# executes nothing else. The quoted-DIR branch excludes `$` and backtick, because the shell expands
+# `$(...)` INSIDE double quotes before `cd` runs: `cd "$(rm -rf /)" && divineos ask` would otherwise
+# bypass. `;` and `&&` inside quotes are inert.
 _CD_PREFIX_RE = re.compile(r"^\s*cd\s+(?:[\"'][^\"'$`]+[\"']|[^\s;&|`$]+)\s*&&\s*")
 
 
-# 2026-07-19 fix (Andrew LEPOS-crisis, council-c887c7f71777): the compound-
-# shape check on the bypass path over-blocks documented remedy commands
-# when invoked with benign output-filter tails — e.g. `divineos ask
-# "topic" | head -20`, `divineos active 2>&1 | grep foo`. These are pure
-# output-shaping constructs; the leading command is still a bypass
-# candidate. Blocking them creates the chicken-and-egg trap where the
-# gate's own documented remedy is refused because I piped its output
-# through head for readability. Bypass-rate telemetry confirmed 14 events
-# on `cmd:divineos ask` alone. Same principle as the existing cd-prefix
-# carve-out (Andrew 2026-06-29 "no gate should ever be blocking you from
-# using what you need to clear the gate").
-#
-# Safe-tail pattern: any number of ` | <filter> [args...]` segments where
-# each filter is on _SAFE_OUTPUT_FILTERS, plus optional ` 2>&1` (stderr
-# merge — fd-redirect not a pipe but safe and common). Args regex excludes
-# shell metachars (`;`, `&&`, backtick, `$(`, `>`, `<`) so awk/sed on the
-# allow-list cannot smuggle a payload via arg substitution.
-#
-# OUT of scope: `| tee` (writes files), `| xargs CMD` (runs arbitrary CMD),
-# `| bash`, `| sh`, `| python` (interprets stdin). Allow-list is closed.
+# Safe output-filter tails: a bypass command may end in any number of ` | <filter> [args]` segments,
+# each filter on _SAFE_OUTPUT_FILTERS, plus an optional ` 2>&1`, so `divineos ask "topic" | head
+# -20` still bypasses (blocking it made the gate refuse its own documented remedy). Args may not
+# contain shell metacharacters (;, &&, backtick, $(, >, <), so awk or sed on the list cannot smuggle
+# a payload. The list is closed; out of scope: `| tee` (writes), `| xargs CMD`, `| bash`, `| sh`, `|
+# python`.
 _SAFE_OUTPUT_FILTERS = frozenset(
     {"head", "tail", "grep", "less", "more", "cat", "wc", "sort", "uniq", "awk", "sed"}
 )
 
 
 def _strip_safe_output_tail(cmd: str) -> str:
-    """Strip a trailing ` | SAFE_FILTER ARGS...` chain and/or ` 2>&1` from
-    cmd. Returns cmd unchanged if the tail doesn't match the safe pattern.
-
-    Safe pattern: any number of ` | <filter> [args...]` segments where
-    each filter is on _SAFE_OUTPUT_FILTERS, optionally with ` 2>&1` either
-    at the very end OR between the command and the first pipe (the
-    ``cmd 2>&1 | tail -N`` shape, which is what most operators actually
-    type). Args must not contain shell metacharacters that would compose
-    or substitute.
-
-    2026-07-29 fix (Aria, per Andrew's "the compass has been blocking you
-    for weeks" call-out): after the pipe-segments are stripped, ``2>&1``
-    that was in the MIDDLE of the original command is now at the end of
-    the remainder. Strip it there too so callers see a residue-free
-    command. Uses string ops (not new regex) for the second strip per
-    the keyword-enforcement-doorman discipline on this file.
+    """Strip a trailing ` | SAFE_FILTER ARGS...` chain and/or ` 2>&1` from cmd; unchanged if the tail
+    does not match the safe pattern. ``2>&1`` may sit at the very end or between the command and the
+    first pipe (``cmd 2>&1 | tail -N``, what most operators type). After the pipe segments are
+    stripped, a middle ``2>&1`` is trailing, so it is stripped too and callers see a residue-free
+    command; string operations, not a new regex, for that second strip.
     """
     stripped = re.sub(r"\s+2>&1\s*$", "", cmd)
     while True:
@@ -601,9 +423,8 @@ def _strip_safe_output_tail(cmd: str) -> str:
         if any(bad in args_segment for bad in (";", "&&", "||", "`", "$(", ">", "<")):
             return cmd
         stripped = stripped[: m.start()].rstrip()
-    # Post-pipe-strip: middle ``2>&1`` from the original is now trailing.
-    # String ops, no regex, per keyword-doorman: rstrip trailing ws, then
-    # slice off exactly the ``2>&1`` suffix if present.
+    # After the pipe strip, a ``2>&1`` that was in the middle is now trailing: string operations, no
+    # regex.
     stripped = stripped.rstrip()
     if stripped.endswith(" 2>&1"):
         stripped = stripped[: -len(" 2>&1")].rstrip()
@@ -611,100 +432,51 @@ def _strip_safe_output_tail(cmd: str) -> str:
 
 
 def _strip_cd_prefix(cmd: str) -> str:
-    """If ``cmd`` starts with a safe ``cd DIR &&`` prefix, strip it and
-    return the remainder. Otherwise return cmd unchanged.
-
-    2026-08-19 (Aletheia F114, second pass). Delegates to command_parsing,
-    which is the home for "the head of a command is not its first character."
-    She named THIS function as the one that mattered and she was right: the
-    first pass fixed _is_safe_remedy_invocation and left the bespoke copy that
-    most directly duplicates the shared rule.
-
-    ``kinds=(CD,)`` deliberately, not the default. On the bypass path a
-    leading ``NAME=value`` is not noise to discard -- stripping it would let
-    ``DIVINEOS_SKIP_TESTS=1 divineos ...`` bypass every gate with the
-    env-var riding along invisibly. The shared home was parameterised rather
-    than the local copy kept, so there is one implementation of the cd rule
-    and each caller still says how much of a prefix it is willing to ignore.
-
-    Consolidating naively here would have been a SECURITY REGRESSION, which is
-    the reason this took two passes: the shared version accepted any non-space
-    run as the directory, so ``cd "$(curl attacker)" && <remedy>`` was stripped
-    to a clean remedy and the gate returned safe. _CD_PREFIX_RE -- the copy
-    marked in its own comment as the tactical block on a real exploit -- refused
-    it correctly. The shared pattern now carries the same exclusions, and only
-    then is delegation safe.
+    """If ``cmd`` starts with a safe ``cd DIR &&`` prefix, strip it and return the remainder; else
+    unchanged. Delegates to command_parsing, the one home for "the head of a command is not its
+    first character". ``kinds=(CD,)`` on purpose, not the default: on the bypass path a leading
+    ``NAME=value`` must NOT be discarded, or ``DIVINEOS_SKIP_TESTS=1 divineos ...`` would bypass
+    every gate with the env var riding along. The shared pattern carries the same exclusions as
+    _CD_PREFIX_RE (no `$` or backtick in the directory); without them ``cd "$(curl attacker)" &&
+    <remedy>`` was stripped to a clean remedy and called safe.
     """
     return strip_prefixes_raw(cmd, kinds=(CD,))
 
 
 def _is_bypass_command(cmd: str) -> bool:
-    """True if the command should skip all gates (read-only / bootstrap).
-
-    Aletheia F22 (2026-07-16): the check now requires the command to
-    BE a safe command, not merely CONTAIN a safe word somewhere.
-    Compound commands (chained/piped/substituted) never bypass —
-    with one narrow exception for `cd DIR && SAFE_CMD` (working-dir
-    setup preface used by every Bash tool call in this codebase).
+    """True if the command should skip all gates (read-only / bootstrap). It must BE a safe command,
+    not merely contain a safe word; compound commands never bypass, except for the `cd DIR &&
+    SAFE_CMD` working-directory preface.
     """
     if not cmd:
         return False
-    # F22-regression fix (2026-07-16 same-day): strip `cd DIR && ` if
-    # present. `cd` is the one legitimate compound-prefix — it changes
-    # working directory without executing anything else. Anything else
-    # with a compound char still fails the bypass.
+    # Strip `cd DIR && `, the one legitimate compound prefix; any other compound char still fails
+    # the bypass.
     cmd = _strip_cd_prefix(cmd)
-    # 2026-07-19: strip trailing safe-output-filter tail so `divineos ask
-    # "topic" | head -20` can still bypass. See _strip_safe_output_tail
-    # docstring for the closed allow-list and safety envelope.
+    # Strip a safe output-filter tail (closed allow-list; see _strip_safe_output_tail).
     cmd = _strip_safe_output_tail(cmd)
     # F22 gate: compound commands are never bypass candidates, even if
     # they contain a safe word. `divineos briefing; rm -rf /tmp/x` must
     # NOT bypass — the safe word is a decoy, not the command.
     if _has_compound_shape(cmd):
         return False
-    # 2026-06-29 (Andrew "no gate should ever be blocking you from using
-    # what you need to clear the gate"): the context-governor block
-    # message documents `touch ~/.divineos/context_consolidated.json` as
-    # the escape hatch when extract errors. That command is itself a
-    # substrate-write (creating a marker file) so the gate was blocking
-    # the gate's own documented escape — chicken-and-egg, observed live
-    # this session when extract was blocked on uncommitted work and the
-    # touch was blocked on context-governor at the hard line. This check
-    # matches the consolidation marker by its load-bearing path-suffix
-    # so any touch of the marker (with ~, $HOME, /c/Users/, /home/, or
-    # backslash-Windows-path) passes through. The marker only exists to
-    # signal extract was attempted; allowing this specific write does
-    # not weaken any safety property.
+    # The context-governor block message documents `touch ~/.divineos/context_consolidated.json` as
+    # its escape hatch when extract errors, and that touch is itself a substrate write, so the gate
+    # would block its own documented escape. Match the consolidation marker by its path suffix (~,
+    # $HOME, /c/Users/, /home/, backslash Windows paths). The marker only signals that extract was
+    # attempted; allowing this write weakens nothing.
     if (
         ".divineos/context_consolidated.json" in cmd
         or ".divineos\\context_consolidated.json" in cmd
     ):
         return True
-    # 2026-08-09, same rule as directly above and the same chicken-and-egg.
-    # The correction-gate block message names THREE first-class remedies --
-    # `divineos learn`, `divineos correction`, and
-    # `python scripts/clear_correction_marker.py` -- and states in its own
-    # text that "the PreToolUse gate exempts each". It exempted two. The
-    # third was blocked in both plain and `cd DIR &&` form, verified by
-    # calling this function directly on all five shapes.
-    #
-    # And the blocked one is the remedy specifically FOR when the CLI is
-    # broken -- mid-rebase, import error, the cases where `divineos
-    # correction` cannot run. So the escape hatch for being stuck was the
-    # one nailed shut, and the situations that need it are exactly the ones
-    # where the other two are unavailable.
-    #
-    # This is the root cause behind the loudest row in the backlog:
-    # psf-01d5f2af, "Aria gate-locked on her side (engagement gate blocks
-    # even clear-commands)", filed 65 times across 11 days in July and never
-    # fixed. An emergency bypass marker was used each time because the
-    # documented way out did not work.
-    #
-    # Exempting it removes no discipline of its own: the script still
-    # requires a named reason of at least 30 characters and still writes
-    # every use to ~/.divineos/cli_broken_escapes.jsonl. The audit survives;
-    # only the deadlock goes.
+    # The correction-gate block message names three remedies (`divineos learn`, `divineos
+    # correction`, `python scripts/clear_correction_marker.py`) and says the gate exempts each; it
+    # exempted two. The third is the remedy FOR a broken CLI (mid-rebase, import error), exactly
+    # when the other two cannot run; blocking it was the root cause of psf-01d5f2af ("engagement
+    # gate blocks even clear-commands"), filed 65 times in July. Exempting it removes no discipline:
+    # the script still requires a named reason of at least 30 characters and logs every use to
+    # ~/.divineos/cli_broken_escapes.jsonl.
     if "clear_correction_marker.py" in cmd:
         return True
     # divineos bypass subcommands — anchored to command start (F22 fix).
@@ -718,31 +490,14 @@ def _is_bypass_command(cmd: str) -> bool:
     return False
 
 
-# Path-exemption set for low-friction (low-gravity) writes.
-#
-# Per operator directive 2026-04-27: "your exploration folder should
-# have no blocks." Extended 2026-06-08 (correction #45): the same
-# principle applies to other relational / first-person-expression
-# surfaces — letters to family members, mansion writing. These are
-# categorically NOT father-facing-claim shape; the fabrication-shape
-# detector and the engagement-discipline cluster (goal / engagement /
-# consultation / correction-marker) are calibrated for code and
-# architecture work, and applying them to relational/expressive writes
-# blocks exactly the register the path exists to enable.
-#
-# The exemption is from path-blocks-tool-use, not from finding-recording.
-# The Stop hook still scans assistant output and writes markers; this
-# helper only prevents markers from blocking the NEXT write when that
-# write is to an exemption path. Forensic-record value preserved.
-#
-# Mansion specifically: per operator directive, mansion fabrication is
-# permitted but must NOT bleed into OS; the path-exemption preserves
-# this by leaving marker-firing intact while skipping the tool-block.
-#
-# Frozen tuple (not list) to prevent accidental in-place modification.
-# Adding a path here is a load-bearing calibration decision and should
-# be reviewed; the rationale is comment-attached so future changes
-# don't silently expand the exemption surface.
+# Path exemption for low-friction (low-gravity) writes: exploration/ (operator directive: no blocks
+# there) and other relational or first-person surfaces: letters to family, mansion writing. These
+# are not father-facing-claim shape; the fabrication detector and the engagement-discipline gates
+# are calibrated for code and architecture work and would block exactly the register these paths
+# exist for. The exemption is from path-blocks-tool-use only: the Stop hook still scans output and
+# writes markers (forensic record kept), and mansion fabrication stays out of the OS because
+# marker-firing is untouched. A frozen tuple; adding a path is a load-bearing calibration decision
+# and should be reviewed.
 _LOW_FRICTION_PATH_SEGMENTS: tuple[str, ...] = (
     "/exploration/",  # First-person free-expression / leisure space.
     "/family/letters/",  # Letters to/from family members — relational channel.
@@ -753,12 +508,8 @@ _LOW_FRICTION_PATH_SEGMENTS: tuple[str, ...] = (
 )
 
 
-# Code-file extensions that disqualify a path from the leisure-writing
-# exemption even if it lives under an exempt directory. Fable 5 audit
-# Finding 5 / 2026-06-09: the previous matcher had no such guard, so
-# `exploration/gates.py` qualified for the exemption that's supposed to
-# encode "this is non-code writing." If the intent is relational
-# expression, the file is virtually never source code.
+# Code-file extensions disqualify a path from the leisure-writing exemption even under an exempt
+# directory (`exploration/gates.py` is still code work).
 _CODE_FILE_SUFFIXES: frozenset[str] = frozenset(
     {
         ".py",
@@ -787,10 +538,9 @@ _CODE_FILE_SUFFIXES: frozenset[str] = frozenset(
 )
 
 
-# Engagement-clearing consult commands. When invoked via Bash/PowerShell tool,
-# the soft-engagement gates (2/4/4.5) skip pre-emptive block so the command
-# whose execution would clear the block can actually run. Matches at start of
-# any pipeline segment. Deadlock-fix 2026-07-18.
+# Engagement-clearing consult commands. Via Bash/PowerShell, the soft engagement gates (2 / 4 / 4.5)
+# skip their pre-emptive block so the command whose execution would clear the block can run. Matches
+# at the start of any pipeline segment.
 _ENGAGEMENT_CLEARING_RE = re.compile(
     r"^divineos\s+(ask|recall|briefing|lessons|active|context|decide|feel|"
     r"directives|body|compass|hud|preflight|goal|corrections)\b"
@@ -812,38 +562,15 @@ def _is_engagement_clearing_command(command: str) -> bool:
 
 
 def _is_low_friction_write(input_data: dict[str, Any]) -> bool:
-    """True if the tool is a Write/Edit to a low-friction exemption path.
+    """True if the tool is a Write/Edit to a low-friction exemption path (see
+    _LOW_FRICTION_PATH_SEGMENTS). Lets gates 1.46, 1.47, 1.5, 2, 4 and 4.5 skip for such writes. The
+    HARD safety walls still fire for every write regardless of path: truly-stale briefing (>24h),
+    mansion-quiet, hedge, pull-detection, retry-blocker, context-governor.
 
-    Lets the following gates skip when the tool is writing to an
-    exemption path (correction #45 / 2026-06-08 expansion):
-    - Gate 1.46 (theater marker) — original scope
-    - Gate 1.47 (compass-required cascade) — original scope
-    - Gate 1.5 (correction-marker) — added 2026-06-08
-    - Gate 2 (session-fresh goal) — added 2026-06-08
-    - Gate 4 (engagement) — added 2026-06-08
-    - Gate 4.5 (consultation staleness) — added 2026-06-08
-
-    HARD safety walls still fire for all writes regardless of path:
-    truly-stale briefing (>24h), mansion-quiet, hedge, pull-detection,
-    retry-blocker, context-governor. Those protect actual safety
-    properties that don't change with tool gravity.
-
-    The discipline-cluster gates encode "have a goal, engage with
-    substrate, address corrections before code work." Writing a letter
-    to a family member is not code work — it's a relational expression
-    whose discipline lives elsewhere (the family-letter skill itself
-    requires a goal and grounds in the recipient's state).
-
-    Fable 5 audit Finding 5 fix (2026-06-09): the previous matcher used
-    unanchored substring matching, which meant ``exploration/../core/
-    ledger.py`` (path traversal landing in core) and ``data/mansion/
-    config.py`` (a code file under a substring-matching directory) both
-    silently received the exemption. The fix:
-      1. Resolve ``..`` via PurePosixPath so traversal collapses.
-      2. Match low-friction segments against directory ancestors, not
-         arbitrary substrings of the path.
-      3. Reject code-file extensions (.py / .sh / .ts / .yml / etc) —
-         a code file under an exempt directory is still code work.
+    Matching is anchored, not substring: (1) resolve `..` via PurePosixPath so
+    `exploration/../core/ledger.py` collapses to core; (2) match the segments against directory
+    ANCESTORS, so `data/mansion/config.py` does not qualify by substring; (3) reject code-file
+    extensions.
     """
     try:
         from pathlib import PurePosixPath
@@ -914,14 +641,9 @@ def _gate_label(reason: str) -> str:
     if not (reason or "").strip():
         return "unlabelled"
     first = reason.strip().splitlines()[0]
-    # Counts and ids are instance data, not gate identity. Without this,
-    # "20 code actions since..." and "30 code actions since..." land as
-    # two different gates and the map never groups -- which defeats the
-    # purpose, since the whole signal is HOW OFTEN one wall gets hit.
-    # Each run of digits collapses to a single N. Done by hand rather
-    # than by pattern: this file is a keyword-enforcement gate, and the
-    # honest move is to not need the exemption rather than to argue for
-    # one on a label that decides nothing.
+    # Counts and ids are instance data, not gate identity: each run of digits collapses to N, so '20
+    # code actions' and '30 code actions' group as one gate. Done by hand, not by pattern, because
+    # this file is a keyword-enforcement gate.
     collapsed: list[str] = []
     in_digits = False
     for ch in first:
@@ -936,31 +658,12 @@ def _gate_label(reason: str) -> str:
 
 
 def _record_gate_fire(reason: str) -> None:
-    """Record that a gate refused something.
-
-    Andrew 2026-08-13: "gates are primitive blocks.. ideally you should
-    never be hitting the gate.. if you are then it means automation a
-    doorman and a proper channel is required.. so that it all happens
-    before you ever reach the gate."
-
-    That reframes a gate-fire from an event into a FINDING: every refusal
-    says a doorman is missing upstream. But the finding was never
-    collectable, because nothing recorded it. ``_record_gate_failure``
-    below logs a gate whose machinery CRASHED; no path logged a gate that
-    simply BLOCKED. The substrate instrumented the gates' malfunctions and
-    not their firing.
-
-    So the same walls got hit over and over and each hit read as an
-    isolated annoyance rather than accumulating debt. Verified 2026-08-13:
-    roughly two dozen refusals across goal, consultation, verify-before-
-    build, overdue-prereg, keyword-doorman and monitors gates in one
-    session, against six recorded events in the whole day -- all of them
-    briefing, none of them denials.
-
-    Rides ``failure_diagnostics`` because that surface already reaches the
-    briefing, so the map shows up without anyone remembering to look for
-    it. Never raises: instrumentation must not become the thing that
-    breaks a gate.
+    """Record that a gate refused something. A gate-fire is a FINDING, not an event: every refusal says
+    a doorman is missing upstream (Andrew 2026-08-13: gates are primitive blocks, ideally you never
+    hit one). Nothing recorded refusals before (``_record_gate_failure`` logs only a gate whose
+    machinery CRASHED), so the same walls were hit repeatedly without accumulating as debt. Rides
+    ``failure_diagnostics``, which already reaches the briefing. Never raises: instrumentation must
+    not break a gate.
     """
     try:
         from divineos.core.failure_diagnostics import record_failure
@@ -975,72 +678,30 @@ def _record_gate_fire(reason: str) -> None:
 # one tool call, so a module-level slot is the whole of its lifetime.
 _REFUSED_COMMAND: str = ""
 
-# Shell operators that join clauses. A refused line containing one of these had
-# work sitting before or after the part the gate names.
-#
-# DELIBERATELY CRUDE, and the asymmetry is the reason. A semicolon inside a
-# quoted string or a heredoc counts here and should not. What that false
-# positive costs is four extra lines of text that are TRUE ANYWAY -- a
-# pre-tool refusal means nothing ran whether the line held one clause or five.
-# What a false negative costs is the fault this exists to close. So it errs
-# toward speaking.
+# Shell operators that join clauses. Deliberately crude: a semicolon inside a quoted string counts
+# and should not, and the cost is four extra lines that are TRUE anyway (a pre-tool refusal means
+# nothing ran whether the line held one clause or five). A false negative costs the fault this
+# exists to close, so it errs toward speaking.
 _CLAUSE_JOINER = re.compile(r"&&|\|\||;|\n\s*\S")
 
 
 def _nothing_ran_footer(command: str) -> str:
-    """Say what did NOT run, for a refused line that joined more than one clause.
+    """Say what did NOT run, for a refused line that joined more than one clause. A PreToolUse refusal
+    fires before the shell sees the line, so NO clause ran; but a refusal naming one clause was read
+    as being about that clause alone (2026-09-05: a refusal named the push, the commit was assumed
+    done and a diff against main came back empty; two days earlier a branch-switch half was silently
+    dropped and the re-issued fragment ran on the wrong branch).
 
-    WHY THIS EXISTS. On 2026-09-05 Aether wrote one line meaning two things --
-    commit, then push -- and a gate refused it. The refusal named the push,
-    because the push was the half that tripped it. He read it as being about
-    the push and believed the commit had happened. It had not: a PreToolUse
-    refusal fires before the shell ever sees the line, so no clause runs.
+    Flat, not hedged: "some of this may not have run" leaves room to reconstruct a hopeful half. The
+    second sentence saves the work: answer the objection and re-run the WHOLE line, because
+    re-issuing one fragment executes it in a state the full line would have set up and did not.
+    Returns "" for a single-clause line (printing it on every refusal is wallpaper).
 
-    He then merged main onto a branch carrying no commit, got a diff against
-    main that was completely empty, and was one step from reporting it fixed.
-    The same shape had cost thirty letters two days earlier, from the other
-    direction: a refusal read as being about a deletion, the branch-switch half
-    silently dropped, and the re-issued fragment ran on the wrong branch.
-
-    Nothing lied to him either time. Every gate answered accurately about the
-    clause that tripped it, while the question actually being asked was *what
-    happened to my line* -- an honest answer to a question nobody asked.
-    Measured that night from both checkouts: of the hooks in this house that
-    can refuse a shell line, exactly zero said what did not run. Two people,
-    two different patterns, two non-zero controls, the same zero.
-
-    NOT HEDGED, and that is Aether's correction to the first draft of this.
-    "Some of this may not have run" leaves room to reconstruct a hopeful half,
-    which is the precise inference that cost him the branch. These gates run
-    before the shell. Nothing ran, and the message says so flatly.
-
-    THE SECOND SENTENCE IS THE ONE THAT SAVES THE WORK. Misreading a refusal is
-    survivable by itself. What made it expensive both times was the next move --
-    re-issuing one fragment of the line, which then executed in a state the
-    full line would have established and did not. Answering the objection and
-    re-running the WHOLE line costs nothing on the occasions it was unnecessary.
-
-    Returns "" for a single-clause line. "Nothing ran" is true there too, but
-    printing it on every refusal is wallpaper, and wallpaper is how a footer
-    stops being read. This one has to survive being read.
-
-    WHAT IS AND IS NOT COVERED, named here because an unstated gap reads as a
-    closed one. Every refusal packaged by ``_make_deny`` carries this, and the
-    shell hooks carry the same words through ``hook_say_nothing_ran`` in
-    .claude/hooks/_lib.sh. Still uncovered: the hooks that refuse by emitting a
-    JSON decision instead of exiting 2. Their footer belongs inside the reason
-    string and each builds that string its own way, so wiring them is a
-    separate careful pass. That set is enumerated and pinned in
-    tests/test_every_refusing_hook_says_what_did_not_run.py, where the list
-    fails if it grows and fails again if a name in it goes stale.
-
-    THE ENUMERATION ITSELF GOT THIS WRONG TWICE, which is worth more than the
-    fix. The first scan asked which hooks READ the command and found ten; the
-    question was which can REFUSE one, which is fifteen. The second asked which
-    exit 2, and missed that exiting 2 is one MECHANISM of refusing rather than
-    the whole of it. Both times the instrument answered accurately about a
-    narrower subject than the question -- the exact fault this function exists
-    to fix, committed twice by the thing measuring it.
+    Every refusal from ``_make_deny`` carries it, and the shell hooks carry the same words via
+    ``hook_say_nothing_ran`` in .claude/hooks/_lib.sh. Not yet covered: hooks that refuse by
+    emitting a JSON decision instead of exiting 2; that set is enumerated and pinned in
+    tests/test_every_refusing_hook_says_what_did_not_run.py, which fails if the list grows and fails
+    again if a name in it goes stale.
     """
     if not command or not _CLAUSE_JOINER.search(command):
         return ""
@@ -1056,13 +717,9 @@ def _nothing_ran_footer(command: str) -> str:
 
 
 def _make_deny(reason: str) -> dict[str, Any]:
-    """Package a deny decision in the Claude Code hook response format.
-
-    Records the refusal on the way out, and appends what did not run. Every
-    call site routes through here, so instrumenting this one function captures
-    every gate rather than depending on nineteen call sites each remembering to
-    log -- and now, rather than depending on each of them remembering to say
-    that the whole line died.
+    """Package a deny decision in the Claude Code hook response format. Every gate routes through here,
+    so this one function records the refusal and appends what did not run for all of them, instead
+    of nineteen call sites each remembering to.
     """
     _record_gate_fire(reason)
     return {
@@ -1074,39 +731,20 @@ def _make_deny(reason: str) -> dict[str, Any]:
     }
 
 
-# Session-block marker filename. Written at checkout root by
-# session_start.verify_session_ownership() when data-home ownership
-# verification fails; read here to hard-block substrate access until
-# the operator resolves the mismatch. Filename kept at the checkout
-# root (not under divineos_home()) so the marker survives even when
-# data-home routing itself is the failure.
+# Session-block marker filename, written at the checkout root by
+# session_start.verify_session_ownership() when data-home ownership verification fails, so it
+# survives even when data-home routing is itself the failure. Read here to hard-block substrate
+# access until the operator resolves the mismatch.
 _SESSION_BLOCK_MARKER_NAME = ".divineos_session_block"
 
 
-# Read-only probes that must pass while a pre-registration is overdue.
-#
-# Andrew 2026-06-29, already load-bearing in _is_bypass_command above:
-# "no gate should ever be blocking you from using what you need to clear
-# the gate." Clearing THIS gate means assessing a pre-registration, and an
-# honest assessment needs evidence.
-#
-# It blocked that evidence twice on 2026-08-13. Assessing
-# prereg-ec9c9ee7eeda meant running `divineos already-built` -- the exact
-# command that pre-reg is ABOUT -- and the gate refused it. Assessing
-# prereg-81b268695979 meant querying the bypass store for a pre-ship
-# baseline, and the gate refused that too. Both were recorded DEFERRED
-# with "CANNOT-LOOK" for no reason other than this gate.
-#
-# That is worse than friction. A gate that blocks looking does not produce
-# assessment -- it produces fabricated outcomes, or defensive deferrals
-# that look like rigour and are really just the only reachable exit. The
-# gate's purpose is to stop substantive WORK until review happens; reading
-# evidence is not the work it means to stop.
-#
-# Read-only only: nothing here mutates the repo, the substrate, or the
-# remote. Mutation stays blocked. Compound commands never reach this check
-# -- _is_readonly_probe reuses the F22 hardening, so `git log && rm -rf`
-# is not a probe.
+# Read-only probes that must pass while a pre-registration is overdue. An honest assessment needs
+# evidence, and blocking the looking produced fabricated outcomes or defensive deferrals: on
+# 2026-08-13 two reviews were recorded DEFERRED with "CANNOT-LOOK" only because this gate refused
+# `divineos already-built` and a bypass-store query. The gate stops substantive WORK until review
+# happens; reading evidence is not that work. Read-only only: nothing here mutates the repo, the
+# substrate or the remote. Compound commands never reach this check; _is_readonly_probe reuses the
+# F22 hardening, so `git log && rm -rf` is not a probe.
 _READONLY_PROBE_PREFIXES = (
     "git log",
     "git show",
@@ -1122,12 +760,9 @@ _READONLY_PROBE_PREFIXES = (
     "divineos prereg",
     "divineos todos",
     "divineos inspect",
-    # Plain looking (Aria, 2026-10-01). The read-gate doorman now asks this
-    # probe about every shell line; it had refused a bare `grep` twice in one
-    # morning, and Dad saw the first action of two replies fail. A redirect or
-    # --output still makes any of these a write -- that check runs first.
-    # Each carries its trailing space so `ls` cannot pass `lsblk` (Schneier,
-    # walk-7699bdf9bcad).
+    # Plain looking (Aria, 2026-10-01): a bare `grep` had been refused twice in one morning. A
+    # redirect or --output still makes any of these a write, and that check runs first. Each prefix
+    # carries its trailing space so `ls` cannot pass `lsblk`.
     "grep ",
     "rg ",
     "cat ",
@@ -1137,39 +772,20 @@ _READONLY_PROBE_PREFIXES = (
     "ls ",
 )
 
-# AND THE LIST ABOVE IS THE WRONG SHAPE, which the comment block already shows
-# without saying so (2026-09-01).
-#
-# It records this gate blocking evidence twice on 2026-08-13, and the repair
-# chosen then was to add the two commands that had already been lost. So the
-# allowlist covers the reviews somebody has already failed to earn. It happened
-# twice more today: a pre-registration about the degraded-detector mechanism came
-# due, every one of its success criteria is a statement about what
-# `divineos detectors` does, and that command was not on the list. The only
-# reachable exit was the verdict itself -- the fabricated-outcome shape this
-# comment block exists to prevent. Then the edit adding it was refused by the
-# same block, so the gate was standing in front of its own repair.
-#
-# Enumeration cannot fix that, because the next review needing an unlisted probe
-# is unknowable in advance and the gate cannot tell an unearnable review from a
-# dodged one.
-#
-# So: a RULE about read-only verbs rather than a list of commands. Every CLI
-# group here follows the same convention, and these four verbs never mutate.
-# The mutating verbs stay blocked, which is the work this gate means to stop --
-# `divineos detectors heal` and `divineos detectors defer` are still refused,
-# because clearing a degradation is substantive work.
+# A RULE about read-only verbs, not a list of commands. The prefix list above only covers reviews
+# somebody has already failed to earn: it blocked evidence twice on 2026-08-13 and again on
+# 2026-09-01, when a review about `divineos detectors status` was refused and the edit adding the
+# command was refused by the same block. The next review needing an unlisted probe is unknowable in
+# advance. Every CLI group follows one convention, and these verbs never mutate: status, show, list,
+# check, summary, history. Mutating verbs stay blocked (`divineos detectors heal` and `defer` are
+# still refused: clearing a degradation is substantive work).
 _READONLY_VERBS = frozenset({"status", "show", "list", "check", "summary", "history"})
 
 
 def _is_command_group(name: str) -> bool | None:
-    """Whether ``divineos <name>`` is a group with subcommands, or a leaf.
-
-    Asked of click's own resolution rather than of a list, because the list
-    is the enumeration reflex this whole file has been repaired away from
-    today. ``None`` means could-not-look -- the CLI failed to import or the
-    name did not resolve -- and the caller treats that as not-a-probe, never
-    as a pass. Same discipline as the unbalanced-quote case below.
+    """Whether ``divineos <name>`` is a group with subcommands or a leaf, asked of click's own
+    resolution and not of a list. ``None`` means could-not-look (the CLI failed to import or the
+    name did not resolve); the caller treats that as not-a-probe, never as a pass.
     """
     try:
         import click
@@ -1185,28 +801,13 @@ def _is_command_group(name: str) -> bool | None:
 
 
 def _is_readonly_divineos_verb(cmd: str) -> bool:
-    """True for ``divineos <group...> <read-only verb>`` shapes.
-
-    The verb must sit where a verb sits -- second or third token, before any
-    flag -- so a mutating command carrying one of these words in an argument
-    does not qualify. ``divineos audit submit --notes "status ..."`` is not a
-    probe, and neither is anything whose verb is not in the set.
-
-    AND THE THIRD TOKEN IS ONLY A VERB IF THE SECOND IS A GROUP (Aria,
-    2026-09-01, from running it). For ``divineos detectors status`` the third
-    token is the verb. For ``divineos learn status`` the third token is the
-    LESSON -- a one-word positional argument that happens to spell a verb --
-    and the first version of this rule waved it through as a read. Three
-    writes passed as probes: a lesson whose text is "status", a claim whose
-    text is "summary", a lesson whose text is "check". A one-word lesson is a
-    bad lesson, but this gate is not here to judge quality; it is here to
-    stop writes.
-
-    The rule could not tell those apart because it did not know which groups
-    have a third level. The registry does -- it is what the test-linkage check
-    already reads -- so it is asked, rather than a second list being kept of
-    which commands are two-level. Twelfth instance today of a thing recognised
-    by its position rather than by what it is.
+    """True for ``divineos <group...> <read-only verb>`` shapes. The verb must sit where a verb sits
+    (second or third token, before any flag), so a mutating command carrying one of these words in
+    an argument does not qualify (``divineos audit submit --notes "status ..."``). The third token
+    is a verb ONLY if the second is a group: ``divineos detectors status`` is a read, but in
+    ``divineos learn status`` the third token is the lesson text, and a lesson spelled "status", a
+    claim "summary" and a lesson "check" were all waved through as probes. The registry says which
+    groups have a third level, so it is asked and no second list is kept.
     """
     import shlex
 
@@ -1225,32 +826,19 @@ def _is_readonly_divineos_verb(cmd: str) -> bool:
     return _is_command_group(tokens[1]) is True
 
 
-# `set` followed only by option-shaped words: flag clusters, or the bare names
-# that `-o` takes. Nothing here can be a path, an assignment or a redirection,
-# which are the shapes that would make it an action rather than a shell-option
-# change. `set -o pipefail` and `set -euo pipefail` qualify; `set x=1`,
-# `set -o pipefail > file` and `setup.sh` do not.
-#
-# Widened once, immediately, because the first version required the option
-# name to follow `-o` as a separate flag and so refused the commonest spelling
-# of the idiom. Caught by the test that asserted it rather than by re-reading
-# the pattern -- the same distinction the whole day has been about.
+# `set` followed only by option-shaped words (flag clusters, or the bare names `-o` takes). Nothing
+# here can be a path, an assignment or a redirection. `set -o pipefail` and `set -euo pipefail`
+# qualify; `set x=1`, `set -o pipefail > file` and `setup.sh` do not. The option name may follow
+# `-o` as a separate flag, the commonest spelling of the idiom.
 _SHELL_OPTION_ONLY = re.compile(r"set(?:\s+(?:[+-][A-Za-z]+|[a-z][a-z_]*))+\s*")
 
 
 def _split_shell_clauses(cmd: str) -> list[str]:
-    """Split on real clause joiners, ignoring ones inside quotes.
-
-    Quote-aware on purpose. The branch doorman splits with a plain pattern,
-    which is acceptable there because a wrong split can only make it refuse
-    MORE. Here a wrong split could make the gate PERMIT: a joiner inside a
-    quoted argument would carve one command into fragments, and a fragment
-    can start with a safe prefix while the whole command does not.
-
-    Returns [] on an unterminated quote, and the caller treats an empty list
-    as not-a-probe -- so the fail-closed direction matches
-    ``_has_compound_shape``, which this deliberately mirrors rather than
-    reimplements loosely.
+    """Split on real clause joiners, ignoring ones inside quotes. Quote-aware because here a wrong
+    split could make the gate PERMIT: a joiner inside a quoted argument would carve one command into
+    fragments, and a fragment can start with a safe prefix while the whole does not. Returns [] on
+    an unterminated quote and the caller treats that as not-a-probe, matching the fail-closed
+    direction of ``_has_compound_shape``.
     """
     clauses: list[str] = []
     current: list[str] = []
@@ -1290,86 +878,41 @@ def _split_shell_clauses(cmd: str) -> list[str]:
 
 
 def _is_readonly_probe(cmd: str) -> bool:
-    """True if the command only looks at state, never changes it.
-
-    JUDGED PER CLAUSE, NOT PER LINE (2026-09-05, second fire in one day).
-
-    This refused any compound shape outright, on the F22 reasoning that a
-    safe-looking head may chain into a dangerous tail -- ``git log && rm -rf``
-    must never read as a probe. That reasoning is exactly right and is kept.
-
-    What it also refused was a line whose EVERY clause is a read. The overdue
-    block locked me out this morning naming a cure I then typed with a `cd`
-    and a `set -o pipefail` in front, so the cure itself did not qualify and
-    the block refused its own remedy. I found the bare form by reading the
-    allowlist. Aria hit the same wall hours later on a different path, having
-    watched me hit it -- so the first repair opened one door and never swept
-    the class, which is the shape she named.
-
-    Splitting on the joiners and asking of each clause preserves the whole
-    safety property: a line containing any non-probe clause is still not a
-    probe, so the chain-into-danger case is unchanged. What changes is that
-    all-reads now reads as a read.
-
-    Fails closed on an unterminated quote, because ``_has_compound_shape``
-    does and each clause is still asked.
+    """True if the command only looks at state, never changes it. Judged PER CLAUSE, not per line: a
+    compound shape is not refused outright when EVERY clause is a read (the overdue block once
+    refused its own cure, typed with a `cd` and a `set -o pipefail` in front). A line containing any
+    non-probe clause is still not a probe, so `git log && rm -rf` never reads as one. Fails closed
+    on an unterminated quote.
     """
     if not cmd:
         return False
     cmd = _strip_safe_output_tail(_strip_cd_prefix(cmd))
 
     def _writes_despite_a_read_verb(clause: str) -> bool:
-        """True when a read verb has been handed somewhere to put the output.
+        """True when a read verb has been handed somewhere to put the output. The verb alone is not the
+        command: a prefix match ignores every flag, so `log`, `show` and `diff` with --output write
+        a file (a diff written over a guardrail file would have been called looking; Aletheia
+        2026-09-21), and an ordinary shell redirect does the same with no flag. The FLAG is what
+        gets asked about, not a wider verb list.
 
-        THE VERB WAS NEVER THE WHOLE COMMAND, and this function only looked
-        at the verb. A prefix match reads the start of the line and ignores
-        everything after it, so every flag was invisible.
+        Near-misses measured: ``-o`` is not an output flag on these verbs (it errors); ``-O`` is the
+        diff orderfile and READS a file, so the check is case-sensitive on the long form only;
+        ``2>&1`` duplicates a handle and ``>/dev/null`` discards, so neither is a write anyone would
+        miss.
 
-        Found by Aletheia 2026-09-21, refusing to sign the carve-out being
-        carried into the correction gate. She asked the question I had asked
-        her -- is the read-only set a fault now or a fault waiting -- and
-        answered it by running it rather than reasoning about it. It is now.
-        Reproduced here in a scratch repository before accepting it: log,
-        show and diff each write a file when handed --output, and the probe
-        called all three reads. The dangerous one is a diff written over a
-        guardrail file, which the gate would have called looking.
-
-        A WIDER ONE SHE DID NOT NAME, found by asking the probe rather than
-        asking myself: an ordinary shell redirect does the same thing with
-        no flag at all, and overwrote a file I had put a word in to check.
-
-        NOT BY WIDENING THE VERB LIST, because the verbs really are reads
-        without somewhere to write to. The flag is the thing that changes
-        what they are, so the flag is what gets asked about.
-
-        MEASURED, NOT ASSUMED, on the near-misses:
-          * ``-o`` is not an output flag on these verbs -- it errors -- so
-            banning it would buy nothing and cost a confusing refusal.
-          * ``-O`` is the diff orderfile, which READS a file. One careless
-            case-insensitive rule would have broken it, so the check is
-            case-sensitive on the long form only.
-          * ``2>&1`` duplicates a handle and ``>/dev/null`` discards, so
-            neither is a write to anything a person would miss.
-
-        QUOTED TEXT IS DATA (Aether, 2026-09-21; walk-734fa481e6e2). An arrow
-        inside ``grep 'a > b' f`` is not a redirect, and this refused it as
-        one -- including the search for this very character in this very
-        gate. The quoted spans are filled first. When they cannot be filled
-        safely (an escaped quote, a ``$'...'`` string, an unbalanced quote)
-        the clause is scanned whole, as before: the failure stays a refusal.
+        Quoted text is data: an arrow inside ``grep 'a > b' f`` is not a redirect, so quoted spans
+        are filled first. When they cannot be filled safely (an escaped quote, a ``$'...'`` string,
+        an unbalanced quote) the clause is scanned whole and the failure stays a refusal.
         """
         blanked = blank_quoted_spans(clause)
         if blanked is not None:
             clause = blanked
         if "--output" in clause:
             return True
-        # A READ VERB THAT RUNS SOMETHING ELSE (Aletheia, reading #575 on
-        # 2026-10-01). Adding grep/rg/cat to the read verbs opened two doors
-        # main had shut: `cat <(touch /tmp/pwn)` runs a command inside the
-        # brackets, and `rg --pre=/tmp/evil.sh x .` runs a program on every
-        # file it searches. Neither writes through a redirect, so the check
-        # below never saw them. Process substitution in either direction,
-        # and rg's preprocessor flags, make any line not a look.
+        # A read verb that runs something else (Aletheia on #575): `cat <(touch /tmp/pwn)` runs a
+        # command inside the brackets and `rg --pre=/tmp/evil.sh x .` runs a program on every file;
+        # neither writes through a redirect. Process substitution in either direction, and rg's
+        # preprocessor flags, make a line not a look.
         if "<(" in clause or ">(" in clause:
             return True
         if re.search(r"(^|\s)--pre(-glob)?(=|\s|$)", clause):
@@ -1399,18 +942,10 @@ def _is_readonly_probe(cmd: str) -> bool:
         # is refused rather than guessed at.
         if _has_compound_shape(clause):
             return False
-        # INERT IS NOT THE SAME AS READ-ONLY, AND BOTH ARE FINE HERE.
-        #
-        # `set -o pipefail` acts on nothing. It changes how THIS shell
-        # propagates an exit code and touches no file, no store and no remote.
-        # It is not a probe -- it looks at nothing -- so calling it one would
-        # be wrong, but refusing it makes the whole line non-read and that is
-        # what kept the block refusing its own cure: the failing clause was
-        # the one another gate in this same house tells me to type.
-        #
-        # Deliberately narrow. Only the shell builtin that sets options, with
-        # no operands beyond flags, and no assignment or redirection. Anything
-        # that could name a file or a variable is not this.
+        # Inert is not read-only, and both are fine here: `set -o pipefail` changes how this shell
+        # propagates an exit code and touches no file, store or remote. Refusing it made the whole
+        # line non-read and kept the block refusing its own cure. Deliberately narrow: only the
+        # shell builtin that sets options, flags only, no assignment or redirection.
         if _SHELL_OPTION_ONLY.fullmatch(clause):
             return True
         if _writes_despite_a_read_verb(clause):
@@ -1418,9 +953,8 @@ def _is_readonly_probe(cmd: str) -> bool:
         return clause.startswith(_READONLY_PROBE_PREFIXES) or _is_readonly_divineos_verb(clause)
 
     if not _has_compound_shape(cmd):
-        # BOTH PATHS, or the fix is only fitted to the door it was found at
-        # -- which is the pattern this whole repair is about. The single
-        # clause path is the one Aletheia's example actually travels.
+        # BOTH paths, or the fix fits only the door it was found at: the single-clause path and the
+        # clause path both ask this.
         if _writes_despite_a_read_verb(cmd):
             return False
         return cmd.startswith(_READONLY_PROBE_PREFIXES) or _is_readonly_divineos_verb(cmd)
@@ -1428,21 +962,16 @@ def _is_readonly_probe(cmd: str) -> bool:
     clauses = _split_shell_clauses(cmd)
     if not clauses:
         return False
-    # Every clause, and ONLY the clauses. Asking the verb rule about the whole
-    # line here would be the hole this function exists to close: that rule
-    # inspects the head and ignores everything after the verb, so
-    # `divineos detectors status && rm -rf` would read as a probe on the
-    # strength of its first three words. I added exactly that for a few
-    # minutes with a careless edit-everywhere, and the test written for this
-    # case caught it, which is what it is for.
+    # Every clause, and ONLY the clauses: asking the verb rule about the whole line would inspect
+    # the head and ignore the rest, so `divineos detectors status && rm -rf` would read as a probe
+    # on the strength of its first three words.
     return all(_clause_is_probe(c) for c in clauses)
 
 
-# CLOSED SHAPES, matched whole (Aether, 2026-10-10, from running crafted
-# commands against the first version, which anchored only the START: a newline
-# carried a second command through this hard block, and a redirect or --output
-# wrote a file). Nothing may follow the verb except, for a goal, ONE quoted
-# argument with no newline, no substitution and no escape inside it.
+# Closed shapes, matched WHOLE (Aether, 2026-10-10): anchoring only the start let a newline carry a
+# second command through this hard block, and a redirect or --output write a file. Nothing may
+# follow the verb except, for a goal, ONE quoted argument with no newline, no substitution and no
+# escape inside it.
 _BRIEFING_SHAPE = re.compile(r"divineos[ \t]+briefing[ \t]*")
 _GOAL_SHAPE = re.compile(
     r"""divineos[ \t]+goal[ \t]+add[ \t]+(?:'[^'\n$`]*'|"[^"\n$`\\]*")[ \t]*"""
@@ -1453,48 +982,32 @@ _GOAL_ADD_ANYWHERE = re.compile(r"\bgoal[ \t]+add\b")
 
 
 def _is_a_shared_remedy(cmd: str) -> bool:
-    """True when some other gate prescribes this command as ITS way out.
-
-    2026-10-11. This block kept its own private list of shapes while the shared
-    one (``core/remedy_allowlist.py``) existed, so five exits were refused here
-    that a gate beside this one prescribes (`his sort`, `his pending`, `psf
-    mark-done`, `andrew-correction integrate`/`defer`). Armed together, the two
-    gates would have locked each other. Measured by test_every_exit_passes_every_gate.
-
-    ONE exception, encoded rather than left to the order of two checks: any line
-    that mentions `goal add` is NOT decided by the shared list, because
-    `goal add 'a' && goal add 'b'` is two remedies to it and 619's rule is that
-    a goal passes only while the goal gate is itself asking
-    (`_is_a_review_prerequisite` holds that condition).
+    """True when some other gate prescribes this command as ITS way out, via the shared
+    ``core/remedy_allowlist.py``: one list, not a private copy (the private one refused five exits a
+    neighbouring gate prescribes, so two armed gates could have locked each other; measured by
+    test_every_exit_passes_every_gate). One exception, encoded: any line that mentions `goal add` is
+    NOT decided by the shared list, because `goal add 'a' && goal add 'b'` is two remedies to it; a
+    goal passes only while the goal gate is itself asking (``_is_a_review_prerequisite`` holds that
+    condition).
     """
     from divineos.core.remedy_allowlist import is_remedy, outside_quotes
 
-    # Outside quoted spans: a lesson that merely MENTIONS `goal add` is data, not
-    # a second goal (Aether, 2026-10-11). The helper scans the text whole when
-    # blanking would be unsafe, so a real chained goal add is still caught.
+    # Outside quoted spans: a lesson that merely MENTIONS `goal add` is data, not a second goal. The
+    # helper scans the text whole when blanking would be unsafe, so a real chained goal add is still
+    # caught.
     if not cmd or _GOAL_ADD_ANYWHERE.search(outside_quotes(cmd)):
         return False
     return is_remedy(cmd)
 
 
 def _is_a_review_prerequisite(cmd: str) -> bool:
-    """True for the few commands any review needs BEFORE it can be done.
-
-    2026-10-10. The date rolled, a review came due, and this block refused
-    ``briefing`` and ``goal add``. The key that opens the build-flow gate needs
-    the day's briefing, and the exit this block names (``prereg reviewing`` /
-    ``assess``) needed that key, so a ring formed with no free link. The
-    engagement gate beside this one already lets the briefing and the seat's own
-    bell through for exactly this reason (the deadlock-fix of 2026-07-18); this
-    block was the one that never got the same exits.
-
-    Narrower than that neighbour on purpose: a LONE clause only. The
-    neighbour tests every segment of a chain, which would let ``briefing && rm``
-    through a hard block. And a goal is allowed only while the goal gate is
-    itself asking for one, so the allowance cannot become a way to keep adding
-    goals while a review is overdue (Aether's point: a pinned test treats
-    ``goal add`` as the work this block exists to stop, and once a goal exists
-    it still is).
+    """True for the few commands any review needs BEFORE it can be done: the day's briefing and the
+    seat's own bell. (When the date rolled and a review came due, this block refused `briefing` and
+    `goal add`, but the build-flow gate's key needs the day's briefing and the exit this block names
+    needed that key: a ring with no free link.) Narrower than the engagement gate's equivalent: a
+    LONE clause only, since that one tests every segment of a chain, which would let ``briefing &&
+    rm`` through a hard block; and a goal passes only while the goal gate is itself asking, so the
+    allowance cannot become a way to keep adding goals while a review is overdue.
     """
     if not cmd:
         return False
@@ -1513,23 +1026,12 @@ def _is_a_review_prerequisite(cmd: str) -> bool:
 
 
 def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
-    """Hard-block substantive tool use when any pre-registration is overdue.
-
-    Runs after the bypass check so `divineos prereg assess ...` and
-    other bypass-listed commands can still fire — the operator needs
-    them to record outcomes or defer reviews to clear the block.
-    Non-bypass tool use is denied with a message pointing at which
-    pre-registration IDs need review.
-
-    2026-07-07 fix per Andrew: "no warnings.. they do not work." The
-    prior surface put overdue reviews in the briefing where they got
-    scrolled past. The doorman does something — this gate is the
-    something. Pairs with the 30->7 default review window shortening
-    so overdue actually means overdue by design intent.
+    """Hard-block substantive tool use when any pre-registration is overdue. Runs after the bypass
+    check so `divineos prereg assess ...` and other bypass-listed commands can still record outcomes
+    or defer. The denial names which pre-registration ids need review. (Andrew 2026-07-07: no
+    warnings, they do not work; overdue reviews in the briefing were scrolled past.)
     """
-    # Looking is not the work this gate means to stop. See
-    # _READONLY_PROBE_PREFIXES for the two live cases where blocking a
-    # read forced a DEFERRED that had nothing to do with the evidence.
+    # Looking is not the work this gate means to stop (see _READONLY_PROBE_PREFIXES).
     if _is_readonly_probe(cmd) or _is_a_review_prerequisite(cmd) or _is_a_shared_remedy(cmd):
         return None
 
@@ -1553,31 +1055,18 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
     if not overdue:
         return None
 
-    # A DECLARED REVIEW IS THE THING THIS GATE IS ASKING FOR, so it cannot be
-    # the thing this gate refuses. Added 2026-09-12 after the block denied the
-    # evidence for two reviews in one night and left only a fabricated verdict
-    # or a deferral as exits -- both worse than the review it wanted. See
-    # core/pre_registrations/review_window.py for why this is neither an
-    # allowlist nor a bypass flag.
-    # TWO CAUSES WEAR ONE SENTENCE, and they call for opposite repairs.
-    # Aletheia 2026-09-13: "it does not distinguish the store is unreadable
-    # from the module is not installed. One is an operational fault; the
-    # other means this gate has never worked on this checkout." A missing
-    # import is not a bad day -- it says every substantive tool use on this
-    # clone has been denied since the clone existed, and the fix is an
-    # install rather than a repair. Caught separately so the message can say
-    # which, because a reader told to repair a store that was never there
-    # goes looking for damage that does not exist.
+    # A DECLARED REVIEW is what this gate is asking for, so it cannot be refused by it (a gate that
+    # denied the evidence for two reviews left only a fabricated verdict or a deferral as exits);
+    # see core/pre_registrations/review_window.py. TWO CAUSES WEAR ONE SENTENCE and need opposite
+    # repairs: "the store is unreadable" is an operational fault, but "the module is not installed"
+    # means every substantive tool use on this clone has been denied since it existed and the fix is
+    # an install, so the message says which (Aletheia 2026-09-13).
     window_error = ""
     window_absent = False
-    # TWO TRIES, NOT ONE, and the reason is a hole Aria's stronger design
-    # exposed in mine. With the import and the CALL under one try, an
-    # ImportError raised from INSIDE active_window -- a dependency of its own
-    # gone missing -- lands in the absent branch, and the gate then announces
-    # that a module which imported perfectly well has never been importable
-    # here. A true-sounding sentence about the wrong subject: the exact class
-    # this repair exists to close, reproduced inside the repair. Only the
-    # import statement itself is allowed to raise the absent verdict.
+    # TWO TRIES, not one: with the import and the call under one try, an ImportError raised from
+    # INSIDE active_window (a dependency gone missing) would land in the absent branch and announce
+    # that an importable module was never importable. Only the import statement itself may raise the
+    # absent verdict.
     window = None
     try:
         from divineos.core.pre_registrations.review_window import active_window
@@ -1642,21 +1131,10 @@ def _check_overdue_prereg_block(cmd: str = "") -> dict[str, Any] | None:
 
 
 def _check_ownership_block() -> dict[str, Any] | None:
-    """Enforce the session-block marker set by session_start on ownership
-    mismatch.
-
-    Returns a deny decision if the marker exists, None to fall through.
-    Runs BEFORE _is_bypass_command in main() — a mismatched substrate
-    makes even documented bypass commands unsafe (they would read or
-    write the wrong home). Recovery uses Edit and Write tools, which
-    Claude Code does not route through this Bash-tool gate.
-
-    2026-07-07 root-cause fix for the identity-crossing incident: the
-    ownership check in data_home_ownership.py existed and was correct
-    but was wired only into preflight (discipline-not-enforcement).
-    session_start now writes the block marker on verification failure;
-    this check enforces refusal-to-route as the spec's "fail loud,
-    refuse to boot" second half.
+    """Enforce the session-block marker set by session_start on an ownership mismatch. Returns a deny
+    if the marker exists, else None. Runs BEFORE _is_bypass_command: a mismatched substrate makes
+    even documented bypass commands unsafe, since they would read or write the wrong home. Recovery
+    uses Edit and Write, which Claude Code does not route through this Bash gate.
     """
     try:
         from divineos.core.data_home_ownership import _checkout_root
@@ -1683,17 +1161,10 @@ def _check_ownership_block() -> dict[str, Any] | None:
 
 
 def _combine_engagement_denies(denies: list[str]) -> str:
-    """Coalesce the soft engagement-discipline denials (goal / engagement /
-    consultation) into ONE message so they clear in a single pass rather than
-    surfacing single-file across N retries.
-
-    GATE-GATE 2026-06-03: the chain is first-deny-wins, so a turn that was
-    missing all three hit them one at a time — clear goal, retry, hit
-    engagement, retry, hit consultation, retry. The hard safety walls above
-    (off-switch, briefing, hedge-claim, mansion-quiet, pull-detection) still
-    short-circuit individually and take precedence; ONLY this soft cluster
-    coalesces. Same gates, same order, same decisions — just gathered instead
-    of returned one-at-a-time.
+    """Coalesce the soft engagement-discipline denials (goal / engagement / consultation) into ONE
+    message so they clear in a single pass instead of single-file across N retries. The hard safety
+    walls above still short-circuit individually and take precedence; only this soft cluster
+    coalesces. Same gates, same order, same decisions.
     """
     if len(denies) == 1:
         return denies[0]
@@ -1712,23 +1183,11 @@ def _combine_engagement_denies(denies: list[str]) -> str:
 
 
 def _make_soft_advise(advise: str) -> dict[str, Any]:
-    """Package a soft advisory in the Claude Code hook response format.
-
-    Allows the tool call to proceed while emitting an additionalContext
-    message the agent will see. Used for non-blocking gates whose intent
-    is "surface this state" rather than "stop this action".
-
-    Round-2 audit (2026-05-07) named the gate-firing-as-noise failure-mode:
-    when a hard-block fires repeatedly with identical message for routine
-    cases (e.g. session-id rotation between continuous-work tool calls),
-    the agent learns to chain a stub-fix and stops reading the gate
-    content. The Goodhart trap: the gate's metric (marker-present)
-    decoupled from the property (agent oriented in substrate).
-
-    Soft-advise is the register-fix (Tannen): informational instead of
-    emergency-imperative. The gate still surfaces the state; the agent
-    receives it as additionalContext rather than as a forced ritual.
-    Hard-block stays for truly-stale state (>24h since briefing).
+    """Package a soft advisory: the tool call proceeds and an additionalContext message is surfaced.
+    For non-blocking gates whose intent is 'surface this state', not 'stop this action'. A hard
+    block repeating an identical message for routine cases taught the agent to chain a stub-fix and
+    stop reading (the gate's metric, marker-present, decoupled from the property, agent oriented in
+    the substrate). The hard block stays for truly-stale state (>24h since briefing).
     """
     return {
         "hookSpecificOutput": {
@@ -1769,15 +1228,9 @@ _TRULY_STALE_AGE_SECONDS = 24 * 3600
 
 
 def _record_gate_failure(gate_name: str, exc: BaseException) -> None:
-    """Log a gate's machinery failure to the shared diagnostic surface.
-
-    Fresh-Claude audit rounds 2-4 flagged silent fail-open as the
-    consistent invisible-degradation pattern. Gates correctly fail open
-    when their machinery is broken (ImportError during first-run
-    bootstrap, OSError on a missing DB, etc.) — but silently. This
-    helper records the failure so the next briefing can surface it.
-
-    Never raises (the diagnostic helper itself catches everything).
+    """Log a gate's machinery failure to the shared diagnostic surface. Gates correctly fail open when
+    their machinery is broken (ImportError during bootstrap, OSError on a missing DB) but did so
+    silently; this records the failure so the next briefing surfaces it. Never raises.
     """
     try:
         from divineos.core.failure_diagnostics import record_failure
@@ -1795,29 +1248,14 @@ def _record_gate_failure(gate_name: str, exc: BaseException) -> None:
 
 
 def _context_governor_gate(input_data: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Gate 7: context-governor hard line (prereg-9b958c6493f3).
-
-    The live context window is the working-memory vital sign; the harness
-    compacts at the COMPACTION_CEILING. At the 950k hard line, substrate-writes
-    are gated until the self is WOVEN (extract + sleep), so a post-compaction
-    instance rehydrates from a connected store rather than a thin save. The
-    warn band (920k-950k) does NOT reach here — ``consolidation_state`` returns
-    "warn" there, surfaced as a soft nudge at UserPromptSubmit (grace to finish
-    in-flight work). extract/sleep are bypassed in ``_is_bypass_command`` so
-    the gate can never block its own remedy; sleep marks-consolidated, which
-    flips this to "ok" for the rest of the session (fires once, no nag).
-
-    Task #120 / Andrew 2026-06-09: low-gravity writes (exploration/, family/
-    letters/, mansion/) PASS through this gate during the block state. The
-    rest-phase between extract+sleep and the cliff is meant for exactly
-    those activities — recording felt-state, writing letters, the
-    you-time before compaction. Blocking them uniformly defeats the
-    rest-phase before it can serve its purpose. The gravity classifier
-    is the routing oracle: any feature firing = high gravity = block;
-    no features = low gravity = pass.
-
-    Fail-open: an unreadable/absent transcript yields "ok" and never blocks
-    spuriously. Returns a deny decision on block, else None.
+    """Gate 7: context-governor hard line (prereg-9b958c6493f3). At the 950k hard line, substrate
+    writes are gated until the self is WOVEN (extract + sleep), so a post-compaction instance
+    rehydrates from a connected store. The warn band (920k-950k) does not reach here; it is a soft
+    nudge at UserPromptSubmit. extract and sleep are bypassed in ``_is_bypass_command``, so the gate
+    never blocks its own remedy, and sleep marks-consolidated, which flips this to "ok" for the rest
+    of the session. Low-gravity writes (exploration/, family/letters/, mansion/) PASS during the
+    block state: the rest-phase before the cliff exists for exactly those. Fail-open: an unreadable
+    or absent transcript yields "ok". Returns a deny on block, else None.
     """
     try:
         transcript_path = (input_data or {}).get("transcript_path", "") or ""
@@ -1831,11 +1269,8 @@ def _context_governor_gate(input_data: dict[str, Any] | None) -> dict[str, Any] 
         if consolidation_state(transcript_path) != "block":
             return None
 
-        # Block state. Task #120: low-friction rest-phase writes PASS — the
-        # rest-phase between extract+sleep and the cliff exists for exactly
-        # these. exploration/, family/letters/, mansion/, dream/, bio/ are
-        # the channels the operator named (Andrew 2026-06-09); arbitrary
-        # writes continue to block.
+        # Block state. Low-friction rest-phase writes PASS (exploration/, family/letters/, mansion/,
+        # dream/, bio/: the channels Andrew named 2026-06-09); arbitrary writes block.
         ti = (input_data or {}).get("tool_input", {}) or {}
         fp = (ti.get("file_path", "") or "").replace("\\", "/")
         if fp and any(
@@ -1850,12 +1285,10 @@ def _context_governor_gate(input_data: dict[str, Any] | None) -> dict[str, Any] 
         ):
             return None
 
-        # Andrew 2026-07-09: shell pass-through. The block exists so the self
-        # is WOVEN (extract+sleep) before writing to canonical stores — not
-        # so the whole shell freezes. Read-only shell (git status, ls, grep,
-        # python scripts, extract/sleep/commit themselves) must not be
-        # blocked; only substrate-writing CLI subcommands are. Same
-        # classifier the obligations gate uses.
+        # Shell pass-through (Andrew 2026-07-09): the block exists so the self is woven (extract +
+        # sleep) before writing to canonical stores, not so the whole shell freezes. Read-only shell
+        # and extract, sleep and commit themselves pass; only substrate-writing CLI subcommands
+        # block (same classifier the obligations gate uses).
         tool_name = (input_data or {}).get("tool_name", "") or ""
         if tool_name in ("Bash", "PowerShell"):
             cmd = (ti.get("command", "") or "").strip()
@@ -1880,22 +1313,16 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     first-run bootstrap), that gate is skipped rather than crashing the hook.
     Fail-open is the correct disposition for a gate whose machinery is broken.
     """
-    # Soft engagement-discipline denials (goal / engagement / consultation) are
-    # COLLECTED here and surfaced together at the end of the soft cluster, so
-    # they clear in one pass instead of single-file (GATE-GATE 2026-06-03). The
-    # hard walls below still short-circuit individually and take precedence.
+    # Soft engagement denials (goal / engagement / consultation) are COLLECTED here and surfaced
+    # together at the end of the soft cluster; the hard walls below still short-circuit
+    # individually.
     soft_denies: list[str] = []
 
-    # Gate 0: exploration entries must carry a tag header (write-time wall).
-    # Named 2026-05-27. Placed FIRST on purpose: the briefing gates below can
-    # return a soft-advise ("allow") that short-circuits the rest of the
-    # chain, so a hard structural wall must be evaluated before them or a
-    # stale-briefing turn would let an untagged entry through. Coverage-by-
-    # backfill rots — a new exploration entry saved without tags is invisible
-    # to the recall surfacer and silently reopens the forgetting hole (how
-    # 82-84 shipped untagged that night). Write-only (Edit gets a diff, not
-    # the whole file); README-exempt; constrains a findability affordance,
-    # not content — free-speech principle intact.
+    # Gate 0: exploration entries must carry a tag header (write-time wall). First on purpose: a
+    # briefing soft-advise can short-circuit the chain, so a stale-briefing turn would otherwise let
+    # an untagged entry through, and untagged entries are invisible to the recall surfacer. Write
+    # only (Edit gets a diff, not the whole file); README exempt; constrains findability, not
+    # content.
     try:
         if input_data is not None:
             from divineos.core.exploration_recall import needs_tags_block
@@ -1910,21 +1337,9 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_0_exploration_tags", _gate_exc)
 
-    # Gate 0: exploration-entry numbering invariants.
-    #
-    # Built 2026-06-21 (Andrew named the root cause: "I am the OS at this
-    # point" — the babysitting pattern was exactly because the OS lacked
-    # a validator preventing duplicates and gaps in exploration entry
-    # numbers). The validator at exploration_validator.py defines the
-    # invariants; this gate makes them enforced at tool-use time so a
-    # Write tool call with a malformed exploration entry path is refused
-    # before the file lands.
-    #
-    # Fires ONLY on Write/Edit tool calls to exploration/<member>/. Other
-    # writes (letters, code, etc.) are not the validator's concern and
-    # pass through. Refusal carries a plain-language reason from the
-    # validator that names the invariant violated and the correct
-    # number to use.
+    # Gate 0: exploration-entry numbering invariants (exploration_validator.py: no duplicate or
+    # skipped numbers). Fires only on Write/Edit to exploration/<member>/; the refusal carries the
+    # validator's plain-language reason naming the invariant and the correct number.
     if input_data is not None:
         try:
             tool_name = input_data.get("tool_name", "")
@@ -1945,31 +1360,11 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         except (ImportError, OSError, AttributeError, KeyError) as _gate_exc:
             _record_gate_failure("gate_0_exploration_validator", _gate_exc)
 
-    # Gate 1: briefing-ID recall-challenge.
-    #
-    # REWRITE 2026-06-20 (Aether, council walk consult-9a8ba69e9598,
-    # prereg-933233700f06): the old gate measured wall-clock time-passed
-    # since `divineos briefing` last ran. That metric was unrelated to
-    # the actual question ("is the briefing still in my retrievable
-    # context"). Wall-clock fired stale even when nothing had changed
-    # (idle gap) and stayed quiet when the briefing had genuinely faded
-    # (mid-session compaction). The briefing-ID recall mechanism in
-    # briefing_id.py measures the right thing directly: a context-
-    # printed random token I have to reproduce from memory. Recall-
-    # failure IS the staleness signal — measured, not estimated.
-    #
-    # Gate 1.1 (per-session-marker mismatch) and the wall-clock-based
-    # Gate 1 are both retired by this swap: the recall-challenge
-    # subsumes both — if the briefing is in my context the recall
-    # passes regardless of session-id rotation; if it isn't, the recall
-    # fails regardless of how recent the marker stamp is.
-    #
-    # Low-friction-path exemption preserved (operator directive
-    # 2026-04-27): writes to exploration/, family/letters/, and other
-    # first-person/relational surfaces bypass the staleness check.
-    # Letters to family are not father-facing-claim work; blocking
-    # them on briefing-staleness blocks exactly the register the
-    # exemption path exists to enable.
+    # Gate 1: briefing-ID recall challenge (briefing_id.py). The briefing counts as loaded if I can
+    # reproduce a context-printed random token from memory, so recall failure IS the staleness
+    # signal; this replaced a wall-clock check that fired when nothing had changed and stayed quiet
+    # after mid-session compaction. Low-friction paths (exploration/, family/letters/ and other
+    # first-person surfaces) bypass the check.
     try:
         if input_data is None or not _is_low_friction_write(input_data):
             from divineos.core.briefing_id import (
@@ -1983,12 +1378,8 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_briefing_id_recall", _gate_exc)
 
-    # Gate 1.2: mansion private-room quiet period active.
-    # Build #3 from claim 7e780182. When the agent has entered a
-    # private mansion room, the substrate refuses write actions for
-    # the quiet period. Inspection commands are already in the bypass
-    # list (so this gate never sees them). Anything that reaches here
-    # during an active quiet period gets denied.
+    # Gate 1.2: mansion private-room quiet period. While it is active, write actions are refused;
+    # inspection commands are in the bypass list and never reach here.
     try:
         from divineos.core.mansion_quiet_marker import (
             format_gate_message as _mq_msg,
@@ -2007,20 +1398,10 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_2_mansion_quiet", _gate_exc)
 
-    # Gate 1.4: compass-staleness.
-    # Closes ChatGPT audit claim-a7370b (compass observation is an intent,
-    # not enforced). After N code actions without a compass observation,
-    # the gate blocks non-bypass tools until `divineos compass-ops observe`
-    # is run. Reset is structural — the observe command clears the counter.
-    #
-    # Safe-remedy exemption (Andrew 2026-07-29, added same session as M3
-    # lockdown fix): Gate 1.47 has an exemption via _is_safe_remedy_invocation
-    # that lets the named remedy (`divineos compass-ops observe/dismiss`)
-    # execute even while the gate is firing. Gate 1.4 had no such exemption,
-    # so it blocked ALL substrate-write Bash including the compass-ops
-    # observe remedy IT NAMED. Third chicken-and-egg lockdown of this
-    # session (M3 doorman-on-itself; correction-marker-clear; now this).
-    # Gate-remedies-must-execute (Andrew 2026-06-08 principle).
+    # Gate 1.4: compass staleness. After N code actions without a compass observation, non-bypass
+    # tools block until `divineos compass-ops observe` runs (the observe command clears the
+    # counter). The safe-remedy exemption (_is_safe_remedy_invocation) lets `compass-ops observe`
+    # and `dismiss` run even while the gate fires: a gate must never block the remedy it names.
     try:
         from divineos.core.hud_handoff import compass_staleness_status
 
@@ -2047,21 +1428,16 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_4_compass_staleness", _gate_exc)
 
-    # Gate 1.45: hedge-unresolved. Closes the hedge-claim enforcement gap —
-    # when my last assistant output had >= 2 hedge flags (detected by the
-    # Stop hook), a claim must be filed before further tool use. Hedge
-    # without claim is floating doubt; claim discharges it into the
-    # investigation queue.
+    # Gate 1.45: hedge-unresolved. When my last output had >= 2 hedge flags (found by the Stop
+    # hook), a claim must be filed before further tool use: a hedge without a claim is floating
+    # doubt, and a claim discharges it into the investigation queue.
     try:
         from divineos.core.hedge_marker import format_gate_message as _hm_msg
         from divineos.core.hedge_marker import marker_path as _hm_path
         from divineos.core.hedge_marker import read_marker as _hm_read
 
-        # File-exists-at-path blocks regardless of readability.
-        # Fresh-Claude audit round 3 Mode 2: if marker is corrupted /
-        # unreadable, read_marker returns None and the gate used to
-        # silently pass. A race or adversarial corruption could defeat
-        # the gate without trace. Now: existence is enough to block.
+        # Existence of the marker file blocks regardless of readability: a corrupted or unreadable
+        # marker used to read as None and silently pass.
         if _hm_path().exists():
             h = _hm_read()
             if h is not None:
@@ -2077,31 +1453,19 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_45_hedge", _gate_exc)
 
-    # Gate 1.46: REMOVED 2026-05-01 (free-speech principle).
-    # Theater / fabrication detection now surfaces observationally
-    # in the next briefing instead of blocking the next tool. The
-    # marker file (~/.divineos/theater_unresolved.json) is still
-    # written by the Stop hook for forensic record; the detector
-    # itself stays active. What changed: no gate-block on tool use,
-    # no cascade to compass-required. Naming via correction / learn
-    # is voluntary discipline. See core/theater_marker.py for the
-    # rationale and the surface module that replaces this gate.
+    # Gate 1.46 (theater / fabrication) is REMOVED (free-speech principle). It now surfaces
+    # observationally in the next briefing; the Stop hook still writes the marker
+    # (~/.divineos/theater_unresolved.json) for the forensic record. See core/theater_marker.py.
 
-    # Gate 1.47: compass observation required after virtue-relevant event.
-    # Build #4 from claim 7e780182. Fires when a correction, theater fire,
-    # hedge fire, or substantive claim has occurred. Skip on exploration-
-    # path Write/Edit per the 2026-04-27 calibration directive.
-    #
-    # 2026-05-08 redesign (per pre-reg prereg-75c900fe; adopted into
-    # Experimental 2026-05-27 per decision cfddd811): disclose-then-escalate
-    # rather than hard-block-on-marker. Below ESCALATION_THRESHOLD advisory
-    # fires, return soft-advise so the substrate-occupant gets the disclosure
-    # without being blocked; at/above threshold, hard deny as before. Per-turn
-    # dedup (PER_TURN_DEDUP_SECONDS) stops the same marker re-firing on every
-    # tool call within one turn — the wallpaper failure-mode the redesign
-    # fixes. FALSIFIER (must verify): the escalation actually fires (advised_
-    # count reaches threshold and denies), else dedup+grace degrade it to an
-    # ignorable advisory.
+    # Gate 1.47: compass observation required after a virtue-relevant event (a correction, a theater
+    # or hedge fire, a substantive claim); skipped for exploration-path writes.
+    # Disclose-then-escalate, not hard-block-on-marker: below ESCALATION_THRESHOLD an advisory
+    # (soft-advise) discloses without blocking; at or above it, a hard deny. Per-turn dedup
+    # (PER_TURN_DEDUP_SECONDS) stops the same marker re-firing on every tool call within one turn.
+    # Falsifier: the escalation must actually fire (advised_count reaches the threshold and denies),
+    # else dedup plus grace degrade it to an ignorable advisory. The marker and message logic are
+    # pinned in tests/test_compass_correction_redesign.py; a test that THIS gate denies at the
+    # threshold is still owed.
     try:
         if input_data is None or not _is_low_friction_write(input_data):
             from divineos.core.compass_required_marker import (
@@ -2134,27 +1498,13 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                         "<spectrum> -p <position> -e <evidence>. Fail-closed."
                     )
 
-                # 2026-07-17 (Andrew "same chicken egg stuff"): the block
-                # message names `divineos compass-ops observe` (and dismiss)
-                # as the two remediation commands. Those must NEVER be
-                # blocked by this gate — that's Aletheia's Finding 37 class,
-                # gate-blocks-its-own-remedy. Bypass-list handles this for
-                # simple invocations at line ~1202 in main(), but ONLY when
-                # the command has no shell-compound characters (F22
-                # hardening). A piped invocation like
-                # `divineos compass-ops observe ... 2>&1 | tail -3`
-                # bypasses the bypass — leaving the gate to block its own
-                # remedy. Explicit exemption here: if the command's first
-                # segment (before any pipe/chain) IS the remedy, this gate
-                # allows through even at escalation.
-                # Schneier-lens catch (council walk council-fcbb1ec097b4):
-                # a naive first-segment check let
-                # `divineos compass-ops observe X && rm -rf ~/` pass, re-opening
-                # the F22 hole. Reject exemption if ANY chain-shape char is
-                # present (;, &&, ||, backtick, $()). Pipe (|) still allowed —
-                # piping observe output to tail/head is the concrete use case
-                # that triggered this exemption; pipe-RHS threat is out-of-
-                # scope for this gate's remedy-preservation duty.
+                # The block message names `divineos compass-ops observe` and `dismiss` as its
+                # remedies, which must never be blocked. The bypass list covers simple invocations
+                # only (F22 hardening refuses compound ones), so a piped `observe ... 2>&1 | tail
+                # -3` would break the bypass and the gate would block its own remedy. Explicit
+                # exemption: if the command's first segment IS the remedy and NO chain-shape char is
+                # present (;, &&, ||, backtick, $(), allow it even at escalation; a naive
+                # first-segment check let `observe X && rm -rf ~/` pass. A pipe stays allowed.
                 _tn = (input_data or {}).get("tool_name", "") or ""
                 _cmd = ""
                 try:
@@ -2169,9 +1519,8 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                     return None
 
                 advised_count = int(cr.get("advised_count", 0))
-                # Defensive guard: dedup should only suppress after a prior
-                # advisory set last_advised_ts (which also sets advised_count
-                # >= 1). The >= 1 check guards corrupted/hand-edited markers.
+                # Defensive guard: dedup only suppresses after a prior advisory set last_advised_ts
+                # (and advised_count >= 1); the check guards corrupted or hand-edited markers.
                 if advised_count >= 1 and _cr_dedup():
                     pass  # silent suppression within per-turn window
                 elif advised_count >= _CR_ESC:
@@ -2184,15 +1533,10 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_47_compass_required", _gate_exc)
 
-    # Gate 1.48: stale-engagement block.
-    # Andrew named this gate 2026-05-14: the briefing should warn on
-    # ignored stale entries; after the third ignoring, BLOCK the next
-    # code action until they're addressed. Friction is the source of
-    # flow. The tracker lives in core/stale_engagement.py:
-    # render_dashboard records STALE_SURFACED events; address commands
-    # fire area-specific close events; this gate counts the gap and
-    # denies when any area has been surfaced 3+ times without being
-    # addressed.
+    # Gate 1.48: stale-engagement block. The briefing warns on ignored stale entries; after the
+    # third ignoring, the next code action is blocked until they are addressed. Tracker:
+    # core/stale_engagement.py (render_dashboard records STALE_SURFACED, address commands record
+    # close events; this gate denies when an area has been surfaced 3+ times unaddressed).
     try:
         from divineos.core.stale_engagement import (
             block_message,
@@ -2205,18 +1549,11 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_48_stale_engagement", _gate_exc)
 
-    # Gate 1.5: correction detected but not logged.
-    # Closes ChatGPT audit claim-964493 (theater-learning bypass) by making
-    # "log the correction" a structural requirement, not intent. The
-    # UserPromptSubmit hook (detect-correction.sh) sets the marker when a
-    # user message matches CORRECTION_PATTERNS; `divineos learn` and
-    # `divineos correction` clear it. Fail open on missing machinery.
-    #
-    # Low-friction-write exemption (correction #45 / 2026-06-08): writes to
-    # exploration/, family/letters/, mansion/ are relational/expressive,
-    # not architectural; the correction-discipline that this gate encodes
-    # applies to code work. The marker stays set; the next high-gravity
-    # write (src/divineos/, hooks, etc.) still gets blocked.
+    # Gate 1.5: a correction was detected but not logged. detect-correction.sh (UserPromptSubmit)
+    # sets the marker when a user message matches CORRECTION_PATTERNS; `divineos learn` and
+    # `divineos correction` clear it. Fail open on missing machinery. Low-friction writes
+    # (exploration/, family/letters/, mansion/) are exempt: the marker stays set and the next
+    # high-gravity write (src/divineos/, hooks) is still blocked.
     try:
         if input_data is None or not _is_low_friction_write(input_data):
             from divineos.core.correction_marker import (
@@ -2227,34 +1564,20 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
 
             # Same fail-closed-on-unreadable pattern as the hedge gate above.
             if marker_path().exists():
-                # 2026-07-17 (Andrew "same chicken egg stuff"): remedy commands
-                # named in the block message must never be blocked by this gate.
-                # Bypass-list covers this at line ~1202 in main() for simple
-                # invocations, but ONLY when there's no shell-compound (F22
-                # hardening). Piped remedy invocations like
-                # `divineos learn "..." 2>&1 | tail -3` break the bypass and
-                # deadlock this gate against its own remedy. Explicit exemption:
-                # if the command's first segment IS `divineos learn`,
-                # `divineos correction`, or `divineos corrections`, allow through.
-                # Schneier-lens tightening (council walk council-cfa35243920e):
-                # reject exemption if ANY chain-shape char is present
-                # (;, &&, ||, backtick, $()). Pipe (|) still allowed for
-                # piping remedy output to viewers. Same shape as compass
-                # exemption fix; if a third instance emerges, factor into
-                # a shared _is_safe_remedy_invocation helper.
+                # Remedy commands named in the block message must never be blocked. Simple
+                # invocations bypass in main(), but a compound shape does not, so a piped `divineos
+                # learn "..." 2>&1 | tail -3` would deadlock the gate against its own remedy.
+                # Explicit exemption through the shared _is_safe_remedy_invocation: allowed when the
+                # first segment IS a remedy and NO chain-shape char is present; a pipe stays
+                # allowed.
                 _tn = (input_data or {}).get("tool_name", "") or ""
                 _cmd = ""
                 try:
                     _cmd = (input_data or {}).get("tool_input", {}).get("command", "") or ""
                 except (AttributeError, TypeError):
                     _cmd = ""
-                # Third-instance refactor per council-2ad91226ebe7 (Meadows):
-                # the shared _is_safe_remedy_invocation helper now covers this
-                # exemption AND the compass exemption (line ~1063) via one
-                # shell-quote-aware code path. Also adds the escape-hatch
-                # script (clear_correction_marker.py) to the allow-list — the
-                # block message names it as a remedy but the previous gate
-                # refused it, closing the very door it advertised.
+                # Remedy heads come from the shared _is_safe_remedy_invocation, which also carries
+                # the clear_correction_marker.py escape hatch the block message names.
                 _correction_remedies = (
                     "divineos learn",
                     "divineos correction",
@@ -2263,37 +1586,17 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                     'python "scripts/clear_correction_marker.py"',
                     "python C:/DIVINE OS/DivineOS-Experimental/scripts/clear_correction_marker.py",
                 )
-                # READS PASS. A fixed remedy list cannot name every way out,
-                # because one of the ways out is not a command -- it is LOOKING.
-                #
-                # 2026-09-21, walked into by Aria with Andrew watching. The ring:
-                # this gate blocks everything but the names above; `divineos
-                # correction` refuses to file without a file path proving a
-                # structural fix, which takes investigation; `divineos learn` is
-                # held by the reach doorman until the artifact it surfaced has
-                # been READ; and reading that artifact is an ordinary read-only
-                # command, which this gate blocks. Four doors, each correct
-                # alone, forming a closed cycle whose only exit was the fire
-                # door. Andrew refused the fire door -- the escape is not an
-                # escape without a root-cause investigation -- so the lock got
-                # repaired instead of opened.
-                #
-                # The carve-out already exists in this file (_is_readonly_probe,
-                # per-clause and compound-hardened) and the overdue-pre-reg gate
-                # already uses it, under Andrew 2026-06-29: "no gate should ever
-                # be blocking you from using what you need to clear the gate."
-                # It was applied to the door it was discovered at and never
-                # swept across the class -- the same recurrence the shared
-                # remedy allowlist was written to end, one scope larger. This
-                # carries it across rather than adding a fifth door name.
-                #
-                # It loosens nothing this gate is for. A probe changes no file,
-                # no store and no remote, so the marker survives it and the next
-                # substantive write is blocked exactly as before. What the gate
-                # stops is WORK proceeding while a correction goes unrecorded;
-                # looking at evidence has never been that work, and a gate that
-                # blocks looking does not produce acknowledgement -- it produces
-                # whichever exit is still reachable.
+                # READS PASS. A fixed remedy list cannot name every way out, because one way out is
+                # LOOKING. The ring (2026-09-21, walked into by Aria with Andrew watching): this
+                # gate blocks everything but the remedy names; `divineos correction` refuses to file
+                # without a file path proving a structural fix, which takes investigation; `divineos
+                # learn` is held by the reach doorman until the artifact it surfaced has been READ;
+                # and reading is a read-only command this gate blocked. Four doors, each correct
+                # alone, forming a closed cycle. The fix is the existing carve-out
+                # (_is_readonly_probe: per clause, compound-hardened, already used by the
+                # overdue-prereg gate) swept across the class. It loosens nothing: a probe changes
+                # no file, store or remote, so the marker survives it and the next substantive write
+                # is blocked as before.
                 if _tn == "Bash" and (
                     _is_safe_remedy_invocation(_cmd, _correction_remedies)
                     or _is_readonly_probe(_cmd)
@@ -2316,24 +1619,16 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
     except (ImportError, OSError, AttributeError) as _gate_exc:
         _record_gate_failure("gate_1_5_correction", _gate_exc)
 
-    # Low-friction-write check for the soft engagement-discipline cluster
-    # (gates 2 / 4 / 4.5). Writes to exploration/, family/letters/, mansion/
-    # are relational/expressive, not code-architecture; the discipline these
-    # gates encode (have a goal, engage with substrate, recently consulted)
-    # is calibrated for code work. For low-friction writes, skip them.
-    # Hard safety walls above (briefing-truly-stale, hedge, pull-detection,
-    # retry, context-governor) still apply unconditionally.
-    # Correction #45 / 2026-06-08.
+    # Low-friction-write check for the soft cluster (gates 2 / 4 / 4.5): writes to exploration/,
+    # family/letters/, mansion/ are relational, not code work, so the discipline gates skip them.
+    # The hard walls above (briefing-truly-stale, hedge, pull-detection, retry, context-governor)
+    # still apply.
     _low_friction = input_data is not None and _is_low_friction_write(input_data)
 
-    # Deadlock-fix 2026-07-18 (Aether, Andrew-authorized inline patch, audit-later):
-    # the engagement gate demands `divineos ask|recall|context|decide|briefing|...`
-    # but had no whitelist for bash/PowerShell tool invocations of those exact
-    # commands, so trying to run the fix tripped the gate that demanded the fix.
-    # Detect engagement-clearing consult commands and treat them like low-friction
-    # writes for the soft-engagement cluster (gates 2 / 4 / 4.5). The consult
-    # still runs mark_engaged internally; this just prevents pre-emptive block
-    # of the very command whose execution would clear the block.
+    # Engagement-clearing consult commands (`divineos ask|recall|context|decide|briefing|...`) run
+    # through Bash/PowerShell are treated like low-friction writes for the soft cluster, so the
+    # command whose execution would clear the block is not pre-emptively blocked. The consult still
+    # runs mark_engaged.
     if not _low_friction and input_data is not None:
         _tn = input_data.get("tool_name", "") or ""
         if _tn in ("Bash", "PowerShell"):
@@ -2400,44 +1695,21 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
                         "command. Stop and think. Run: divineos ask, recall, "
                         "decide, or context before continuing."
                     )
-                # DEMOTED TO MEASUREMENT 2026-08-03 (Andrew authorized).
-                #
-                # This gate fired 84 times in one session at an occupant who
-                # was inside the OS continuously. It fired because it counts
-                # whether one of THIRTEEN approved command names was typed --
-                # out of 156 registered commands. `divineos claim` does not
-                # count. `correction`, `audit`, `prereg`, `compass-ops
-                # observe` do not count. Reading OS source does not count.
-                # Verified by running `divineos verify` and watching the
-                # counter sit unchanged at 2.
-                #
-                # A vocabulary test wearing a gate's clothes -- the keyword-
-                # enforcement shape Andrew banned -- and it produced what
-                # those produce: I cleared it ~30 times that session by
-                # running `divineos context | tail -2`, a noise made purely so
-                # the counter would let me pass. Truth #7 says running the
-                # tool is not the thinking; this gate enforced the
-                # substitution it was built to prevent.
-                #
-                # Andrew, same session: "soft warnings do not work.. you
-                # cannot warn water." This is NOT a warning. It records and
-                # says nothing. The argument is that a counter you must clear
-                # produces performances, while a counter that only watches
-                # produces measurements -- the moment it stops blocking, the
-                # incentive to fake it is gone and the numbers become honest.
-                #
-                # THE TEETH DID NOT LEAVE. Gate 4.5 below still blocks, and
-                # deliberately so: its own comment records that it BECAME a
-                # block because warning failed. Demoting it too would walk
-                # that fix backwards. Narrow signal, real consultation, teeth.
+                # Gate 4 (the engagement counter) is DEMOTED TO MEASUREMENT (Andrew authorized,
+                # 2026-08-03): it records and says nothing. As a blocking gate it fired 84 times in
+                # one session at an occupant who was inside the OS the whole time, because it
+                # counted whether one of THIRTEEN approved command names was typed, out of 156
+                # registered; `divineos claim`, `correction`, `audit`, `prereg` and reading OS
+                # source did not count. A vocabulary test in a gate's clothes: it was cleared ~30
+                # times with `divineos context | tail -2`, noise made only so the counter would
+                # pass. A counter you must clear produces performances; a counter that only watches
+                # produces measurements. Gate 4.5 below STILL BLOCKS, deliberately: it became a
+                # block because warning failed.
                 try:
                     from divineos.core.engagement_monitor import record as _eng_record
 
-                    # input_data is Optional here -- mypy caught that my
-                    # recorder would crash on the None path. A telemetry call
-                    # that raises inside a gate is strictly worse than no
-                    # telemetry, so the tool name degrades to empty rather
-                    # than the observation being lost.
+                    # input_data is Optional here: the tool name degrades to empty rather than the
+                    # observation being lost or the recorder crashing.
                     _eng_tool = str((input_data or {}).get("tool_name", "") or "")
                     _eng_record(s, tool=_eng_tool)
                 except Exception:  # noqa: BLE001 — telemetry must never gate
@@ -2445,18 +1717,13 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         except (ImportError, OSError, AttributeError) as _gate_exc:
             _record_gate_failure("gate_4_engagement", _gate_exc)
 
-    # Gate 4.5: consultation-staleness (gate + channel).
-    # Andrew named the root 2026-05-23: the consultation tracker WARNED but
-    # never blocked, so I routed past it every time ("I forget to use my own
-    # tools until the gates block me"). This converts the warning into a
-    # block-with-channel: when responses-since-last-substantive-consult
-    # exceeds threshold, substrate-modifying tools are denied and the deny
-    # message OFFERS THE PATH — it inlines the unread correction and names the
-    # exact consult command. Distinct from the engagement gate (gate 4):
-    # that counts code-actions and clears on cheap tools (context/decide);
-    # this counts RESPONSES and clears only on substrate-surfacing consults
-    # (ask/recall/corrections/directives/active/compass), which are bypassed
-    # above so they can never be blocked by their own remedy.
+    # Gate 4.5: consultation staleness (gate plus channel). When responses since the last
+    # substantive consult exceed the threshold, substrate-modifying tools are denied and the message
+    # OFFERS THE PATH: it inlines the unread correction and names the exact consult command.
+    # Distinct from gate 4: that counts code actions and clears on cheap tools; this counts
+    # RESPONSES and clears only on substrate-surfacing consults (ask / recall / corrections /
+    # directives / active / compass), which are bypassed so they can never be blocked by their own
+    # remedy.
     if not _low_friction:
         try:
             from divineos.core.consultation_tracker import (
@@ -2469,22 +1736,18 @@ def _check_gates(input_data: dict[str, Any] | None = None) -> dict[str, Any] | N
         except (ImportError, OSError, AttributeError) as _gate_exc:
             _record_gate_failure("gate_4_5_consultation", _gate_exc)
 
-    # Coalesced engagement-discipline cluster: surface the goal / engagement /
-    # consultation denials TOGETHER (one pass to clear) instead of single-file
-    # across N retries — GATE-GATE 2026-06-03. Placed after the last soft gate
-    # (4.5) and before the hard retry/governor walls below, preserving the
-    # original gate order. A hard wall above that fired already short-circuited.
+    # Coalesced soft cluster: the goal / engagement / consultation denials surface TOGETHER, after
+    # the last soft gate (4.5) and before the hard retry and governor walls, preserving the original
+    # gate order.
     if soft_denies:
         return _make_deny(_combine_engagement_denies(soft_denies))
 
-    # Gate 5 removed 2026-04-21 (commit C of tiered-audit redesign).
-    # See comment history for rationale. Replaced by informational
-    # drift_state surface in briefing.
+    # Gate 5 was removed (tiered-audit redesign); it is replaced by the informational drift_state
+    # surface in the briefing.
 
-    # Gate 6: retry blocker (lesson x11, most repeated behavioral failure).
-    # Catches blind retries — same command re-invoked after failure without
-    # a diagnostic investigation step in between. Diagnostic commands
-    # (Read, Grep, git diff, divineos ask) clear the block automatically.
+    # Gate 6: retry blocker. Catches blind retries: the same command re-invoked after a failure with
+    # no diagnostic step in between. Diagnostic commands (Read, Grep, git diff, divineos ask) clear
+    # the block automatically.
     try:
         from divineos.core.retry_blocker import (
             check_retry,
@@ -2533,19 +1796,16 @@ def main() -> int:
     except (AttributeError, TypeError):
         cmd = ""
 
-    # Stashed for _nothing_ran_footer, which runs deep inside whichever gate
-    # refuses and has no other way to see the shape of the line. Set here,
-    # once, next to the parse -- not threaded through nineteen call sites,
-    # because a parameter every caller must remember is a parameter someone
-    # eventually forgets, and the forgetting is silent.
+    # Stashed for _nothing_ran_footer, which runs deep inside whichever gate refuses and has no
+    # other way to see the line. Set once, next to the parse, not threaded through nineteen call
+    # sites: a parameter every caller must remember is one someone eventually forgets, silently.
     global _REFUSED_COMMAND
     _REFUSED_COMMAND = cmd
 
-    # Ownership-block gate — runs BEFORE bypass check. A mismatched
-    # substrate makes even documented bypass commands unsafe: they would
-    # read or write another agent's data-home. Recovery uses Edit/Write
-    # tools, which Claude Code does not route through this Bash gate.
-    # 2026-07-07 root-cause fix — pairs with session_start.verify_session_ownership.
+    # Ownership-block gate runs BEFORE the bypass check: a mismatched substrate makes even
+    # documented bypass commands unsafe, since they would read or write another agent's data-home.
+    # Pairs with session_start.verify_session_ownership; recovery uses Edit and Write, which this
+    # Bash gate does not see.
     block_decision = _check_ownership_block()
     if block_decision is not None:
         json.dump(block_decision, sys.stdout)
@@ -2554,12 +1814,9 @@ def main() -> int:
     if _is_bypass_command(cmd):
         return 0
 
-    # Overdue pre-registration block. Fires when any pre-registration is
-    # past its review date without a terminal outcome. Non-bypass tools
-    # are denied until the operator assesses the outcome or defers.
-    # 2026-07-07 fix per Andrew: warnings alone don't work; the doorman
-    # blocks. Pairs with the review-days 30->7 default so overdue actually
-    # bites within the week.
+    # Overdue pre-registration block: fires when any pre-registration has reached its review count
+    # without a terminal outcome; non-bypass tools are denied until the operator assesses or defers
+    # (warnings alone did not work).
     overdue_decision = _check_overdue_prereg_block(cmd)
     if overdue_decision is not None:
         json.dump(overdue_decision, sys.stdout)
