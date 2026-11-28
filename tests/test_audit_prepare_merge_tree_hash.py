@@ -11,9 +11,34 @@ from __future__ import annotations
 from dataclasses import dataclass
 from unittest.mock import patch
 
+import pytest
 from click.testing import CliRunner
 
 from divineos.cli import cli
+
+
+@pytest.fixture(autouse=True)
+def _a_pr_github_names_with_an_unbound_confirm():
+    """These tests are about the trailer's FORM, not about whether the confirm covers a PR.
+
+    Since 2026-11-19 (Aletheia's hold on #864) prepare-merge asks GitHub which PR this is and refuses
+    when it cannot say, so a test of the text's shape has to hand it a PR. The confirm here records no
+    anchor, so the command warns and hands the text over, which is the path these tests are about. The
+    refusals themselves are tested in test_prepare_merge_refuses_when_the_confirm_no_longer_covers_the_branch.
+    """
+    head = "a" * 40
+    with (
+        patch(
+            "divineos.cli.audit_commands.resolve_pr_head",
+            return_value=(("864", "feature", head), ""),
+        ),
+        patch(
+            "divineos.cli.audit_commands.anchor_state_for_round",
+            return_value=("unanchored", "confirm records no tree-hash or patch-id"),
+        ),
+        patch("divineos.cli.audit_commands._git_capture", return_value=head),
+    ):
+        yield
 
 
 @dataclass
