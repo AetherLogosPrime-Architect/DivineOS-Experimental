@@ -51,6 +51,10 @@ NOTICE_PREFIXES = (
     "<system-reminder",
     "<agent-message",
     "<ci-monitor-event",
+    "&lt;task-notification",
+    "&lt;system-reminder",
+    "&lt;ci-monitor-event",
+    "&lt;agent-message",
 )
 
 # His picture is about him, not me, so it stays on the table rather than in the drawer.

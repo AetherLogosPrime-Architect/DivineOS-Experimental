@@ -1607,6 +1607,8 @@ def _turn_started_by_him(payload: dict) -> bool | None:
     path = Path(raw)
     if not path.is_file():
         return None
+    from divineos.core.harness_envelopes import opens_with_notice
+
     started_by_him: bool | None = None
     with path.open(encoding="utf-8", errors="replace") as handle:
         for line in handle:
@@ -1638,9 +1640,7 @@ def _turn_started_by_him(payload: dict) -> bool | None:
                 # or wrapped in a reminder, means nobody started this turn. Only
                 # that: his mentioning the tag is not this branch (it is not machine
                 # text at all), and other machine text says nothing either way.
-                if text.lstrip().startswith(("<task-notification", "<system-reminder")) and (
-                    "<task-notification" in text
-                ):
+                if opens_with_notice(text) and "<task-notification" in text:
                     started_by_him = False
             else:
                 started_by_him = True

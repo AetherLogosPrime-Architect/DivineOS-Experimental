@@ -48,6 +48,7 @@ import re
 from dataclasses import dataclass
 from pathlib import Path
 
+from divineos.core.harness_envelopes import NOTICE_OPENERS, NOTICE_TAGS
 from divineos.core.his_message import typed_part
 
 MODEL_NAME = "all-MiniLM-L6-v2"
@@ -60,10 +61,8 @@ SHOW = 3
 MIN_SIGNAL_WORDS = 4  # below this his message alone carries no query (Peirce)
 PASSAGE_CHARS = 400
 MIN_PASSAGE_CHARS = 25
-NOTICE_PREFIXES = ("<task-notification", "<system-reminder", "<ci-monitor-event", "<local-command")
-_NOTICE_BLOCK = re.compile(
-    r"<(task-notification|system-reminder|ci-monitor-event|local-command[\w-]*)\b.*?</\1>", re.S
-)
+NOTICE_PREFIXES = NOTICE_OPENERS + ("<local-command",)
+_NOTICE_BLOCK = re.compile(r"<(" + "|".join(NOTICE_TAGS) + r"|local-command[\w-]*)\b.*?</\1>", re.S)
 
 
 # HIS PICTURES ARE NOT HIS BIOGRAPHY (correction 390, 2026-10-16). He asked what the
