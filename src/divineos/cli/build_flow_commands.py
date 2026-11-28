@@ -22,8 +22,10 @@ not by any check pretending to verify comprehension.
 from __future__ import annotations
 
 import json
+import os
 import sqlite3
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -104,20 +106,127 @@ def _gh(args: list[str]) -> str | None:
     return p.stdout
 
 
-def _dark_surfaces_or_none() -> list[str] | None:
-    """Modules built to speak that nothing has registered, or None if unreadable.
+_DARK_PROBE = (
+    "import json\n"
+    "import divineos.core.surface_bridge  # registers surfaces\n"
+    "from divineos.core import surface_registry as sr\n"
+    "failed = sr.discover()\n"
+    "print(json.dumps({'dark': sorted(sr.dark_surfaces()), 'failed': failed}))\n"
+)
 
-    Station 5's wiring half. None and [] are kept apart deliberately: an
-    unreadable registry is not a clean bill of health, and reporting it as one
-    is the exact collapse this module was written against.
+# Answers read in this process, clean ones included: within one board run a commit is read once.
+# Never written to disk when clean (see dark_at); None is never remembered.
+_DARK_MEMO: dict[tuple[str, str], list[str]] = {}
+
+
+def dark_at(repo: Path, sha: str, cache_dir: Path) -> list[str] | None:
+    """The dark-surface list of one commit's own tree, read in its own process.
+
+    The board used to read this from whatever checkout it ran in, which is never the
+    pull request's code: comparing a branch with main means evaluating each tree for
+    real. None means could-not-read (unknown commit, a tree whose registry will not load,
+    a timeout, or ANY module that fails to import) and is never collapsed into an empty
+    list, which would read as a clean bill of health.
+
+    Two false-clean holes, both found by Aria's cold read of #884 (2026-11-28). First: the
+    registry skips a module whose import raises, so a newly dark surface that cannot import
+    would read clean; the probe asks discover() for the failures and any failure is
+    could-not-read. Second: a clean answer is never believed from, or written to, a file on
+    disk, because a false clean written once would be final; only dark answers are cached by
+    sha (a wrong dark answer fails loud, a wrong clean one fails silent).
     """
+    memo_key = (str(repo), sha)
+    if memo_key in _DARK_MEMO:
+        return _DARK_MEMO[memo_key]
+    cached = cache_dir / f"{sha}.json"
     try:
-        import divineos.core.surface_bridge  # noqa: F401 - import registers surfaces
-        from divineos.core.surface_registry import dark_surfaces
+        if cached.exists():
+            value = json.loads(cached.read_text(encoding="utf-8"))
+            if isinstance(value, list) and value:
+                return value
+    except (OSError, json.JSONDecodeError):
+        pass
+    import io
+    import tarfile
+    import tempfile
 
-        return sorted(dark_surfaces())
-    except _BF_ERRORS:
+    try:
+        archive = subprocess.run(
+            ["git", "-C", str(repo), "archive", "--format=tar", sha, "src"],
+            capture_output=True,
+            timeout=120,
+        )
+    except (OSError, subprocess.SubprocessError):
         return None
+    if archive.returncode != 0 or not archive.stdout:
+        return None
+    with tempfile.TemporaryDirectory() as tmp:
+        try:
+            with tarfile.open(fileobj=io.BytesIO(archive.stdout)) as tar:
+                tar.extractall(tmp, filter="data")
+            env = {**os.environ, "PYTHONPATH": str(Path(tmp) / "src")}
+            probe = subprocess.run(
+                [sys.executable, "-c", _DARK_PROBE],
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=300,
+                cwd=tmp,
+                env=env,
+            )
+        except (OSError, subprocess.SubprocessError, tarfile.TarError):
+            return None
+    if probe.returncode != 0:
+        return None
+    try:
+        answer = json.loads(probe.stdout.strip().splitlines()[-1])
+    except (IndexError, json.JSONDecodeError):
+        return None
+    if (
+        not isinstance(answer, dict)
+        or answer.get("failed")
+        or not isinstance(answer.get("dark"), list)
+    ):
+        return None
+    dark_names: list[str] = [str(name) for name in answer["dark"]]
+    _DARK_MEMO[memo_key] = dark_names
+    if dark_names:
+        try:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            cached.write_text(json.dumps(dark_names), encoding="utf-8")
+        except OSError:
+            pass
+    return dark_names
+
+
+_DARK_CACHE = Path.home() / ".divineos" / "cache" / "dark_at"
+
+
+def _git_out(args: list[str]) -> str | None:
+    try:
+        p = subprocess.run(["git", *args], capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return p.stdout.strip() if p.returncode == 0 else None
+
+
+def _dark_on_both_trees(head_sha: str | None) -> tuple[list[str] | None, list[str] | None]:
+    """(dark on the request's head, dark on main), each read from its own tree.
+
+    Either side None is could-not-read. A head the local repo does not have is fetched
+    by sha first; if that fails the answer is None, never an assumed clean.
+    """
+    repo = Path.cwd()
+    _git_out(["fetch", "-q", "origin", "main"])
+    main_sha = _git_out(["rev-parse", "origin/main"])
+    branch_dark = None
+    if head_sha:
+        if _git_out(["cat-file", "-e", f"{head_sha}^{{commit}}"]) is None:
+            _git_out(["fetch", "-q", "origin", head_sha])
+        branch_dark = dark_at(repo, head_sha, _DARK_CACHE)
+    main_dark = dark_at(repo, main_sha, _DARK_CACHE) if main_sha else None
+    return branch_dark, main_dark
 
 
 def _walk_postdates_build(branch: str, coverage: "Coverage | None" = None) -> bool | None:
@@ -233,7 +342,7 @@ def _open_prs() -> list[dict] | None:
             "50",
             "--json",
             # body: station 9 reads what the OTHER open requests claim to replace.
-            "number,headRefName,isDraft,body",
+            "number,headRefName,headRefOid,isDraft,body",
         ]
     )
     if out is None:
@@ -931,7 +1040,7 @@ def collect(
             check_scope_station(paths, branch),
             check_build_station(paths),
             check_aria_station(branch, _LETTERS, author_of(pr.get("body"), branch, _OWNERS)),
-            check_test_station(paths, _dark_surfaces_or_none()),
+            check_test_station(paths, *_dark_on_both_trees(pr.get("headRefOid"))),
             check_more_council_station(
                 branch,
                 coverage.lenses if coverage.state == "covered" else walked,

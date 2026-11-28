@@ -1252,7 +1252,11 @@ def check_build_station(changed_paths: Sequence[str]) -> StationResult:
     )
 
 
-def check_test_station(changed_paths: Sequence[str], dark: Sequence[str] | None) -> StationResult:
+def check_test_station(
+    changed_paths: Sequence[str],
+    dark: Sequence[str] | None,
+    main_dark: Sequence[str] | None,
+) -> StationResult:
     """Station 5 -- dogfooding, wiring, automation. Does it run in the real loop.
 
     THE station, and the reason these five got written. Andrew 2026-09-07,
@@ -1292,18 +1296,35 @@ def check_test_station(changed_paths: Sequence[str], dark: Sequence[str] | None)
     problems: list[str] = []
     if not tests:
         problems.append(f"{len(code)} code file(s) changed and no test touched")
-    if dark is None:
-        problems.append("could not read the dark-surface list, so wiring is unverified")
-    elif dark:
-        problems.append(f"{len(dark)} surface(s) built and reachable by nothing: {dark[0]}")
+
+    # A request answers for what BECAME dark on its branch, not for what main already
+    # carries. Matching file paths was blind (deleting a surface's caller, or adding a
+    # dark one outside core/, passed); comparing the two lists is not. Unreadable on
+    # either side is could-not-check, never a quiet clean.
+    unreadable = dark is None or main_dark is None
+    new_dark: list[str] = []
+    if dark is None or main_dark is None:
+        problems.append(
+            "could not read the dark-surface list on both trees, so wiring is unverified"
+        )
+    else:
+        carried = set(main_dark)
+        new_dark = [d for d in dark if d not in carried]
+        if new_dark:
+            problems.append(
+                f"{len(new_dark)} surface(s) newly built and reachable by nothing: {new_dark[0]}"
+                + (f" (+{len(new_dark) - 1} more)" if len(new_dark) > 1 else "")
+            )
 
     if not problems:
+        if dark:
+            note = f"{len(dark)} dark on main too, none new from this request"
+        else:
+            note = "nothing left unreachable"
         return StationResult(
-            "5-test",
-            Status.SATISFIED,
-            f"{len(tests)} test file(s) touched, nothing left unreachable",
+            "5-test", Status.SATISFIED, f"{len(tests)} test file(s) touched, {note}"
         )
-    if dark is None:
+    if unreadable:
         return StationResult("5-test", Status.CANNOT_CHECK, "; ".join(problems))
     return StationResult("5-test", Status.MISSING, "; ".join(problems))
 

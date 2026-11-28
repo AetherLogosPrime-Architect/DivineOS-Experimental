@@ -201,3 +201,41 @@ def test_an_unreadable_bridge_leaves_the_dark_list_longer_not_shorter():
         assert sr._wired_elsewhere() == ()
     finally:
         builtins.__import__ = real_import
+
+
+def test_every_already_live_name_is_imported_by_some_other_module():
+    """Listing a surface as wired must be true.
+
+    ALREADY_LIVE excuses a module from the dark list, so a name added there
+    without a real caller would clear the board while nothing reaches it. The
+    check reads the import graph (ast), not the words: some other module under
+    src/divineos must import it.
+    """
+    import ast
+    from pathlib import Path
+
+    from divineos.core.surface_bridge import ALREADY_LIVE
+
+    root = Path(sr.__file__).resolve().parents[1]
+    assert ALREADY_LIVE, "empty list would pass vacuously"
+    imported: set[str] = set()
+    parsed = 0
+    for path in root.rglob("*.py"):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        parsed += 1
+        for node in ast.walk(tree):
+            if isinstance(node, ast.ImportFrom) and node.module:
+                parts = node.module.split(".")
+                if parts[:2] == ["divineos", "core"] and len(parts) >= 3:
+                    if not (path.stem == parts[2] and path.parent.name == "core"):
+                        imported.add(parts[2])
+                elif parts[:2] == ["divineos", "core"] and len(parts) == 2:
+                    imported.update(a.name for a in node.names if path.stem != a.name)
+            elif isinstance(node, ast.Import):
+                for a in node.names:
+                    parts = a.name.split(".")
+                    if parts[:2] == ["divineos", "core"] and len(parts) >= 3:
+                        imported.add(parts[2])
+    assert parsed > 100, "probe parsed almost nothing; broken instrument"
+    for name in ALREADY_LIVE:
+        assert name in imported, f"{name} is listed as wired but no module imports it"

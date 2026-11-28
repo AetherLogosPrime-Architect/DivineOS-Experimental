@@ -89,7 +89,9 @@ _SURFACES: dict[str, tuple[str, ...]] = {
 
 # Reachable from the live multiplex path already. Registering these would
 # deliver them twice, which is the trap surface_registry names.
-ALREADY_LIVE = ("corrections", "component_register_surface")
+# memory_journal: hand-wired in cli/knowledge_commands.py, so the station-5 dark
+# list must not call it unreachable when a request edits it (Aria's cold read of #884).
+ALREADY_LIVE = ("corrections", "component_register_surface", "memory_journal")
 
 # Chunks emitted per surface per turn. Relevance is what limits volume here;
 # this cap only stops one talkative organ becoming the wall the registry was
