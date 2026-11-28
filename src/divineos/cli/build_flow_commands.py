@@ -22,6 +22,7 @@ not by any check pretending to verify comprehension.
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import subprocess
 from datetime import datetime
@@ -230,6 +231,18 @@ def _run_git(args: list[str]) -> str | None:
 _GH_OPEN_PRS_CAP = 500
 
 
+def _opened_on(pr: dict) -> str | None:
+    """The day (``YYYY-MM-DD``, UTC) GitHub says this request was opened, else None.
+
+    None when the field is missing or is not a date, so a request GitHub did not date has no
+    day to check and reads as cannot-check, never as inside any window.
+    """
+    stamp = pr.get("createdAt")
+    if not isinstance(stamp, str) or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T.*", stamp):
+        return None
+    return stamp[:10]
+
+
 def _open_prs() -> list[dict] | None:
     out = _gh(
         [
@@ -241,7 +254,9 @@ def _open_prs() -> list[dict] | None:
             str(_GH_OPEN_PRS_CAP),
             "--json",
             # body: station 9 reads what the OTHER open requests claim to replace.
-            "number,headRefName,isDraft,body",
+            # createdAt: the cloud lane's window is checked against GitHub's own opening day,
+            # never against a day a file claims for itself.
+            "number,headRefName,isDraft,body,createdAt",
         ]
     )
     if out is None:
@@ -919,6 +934,8 @@ def collect(
     for pr in prs:
         n = int(pr.get("number", 0))
         branch = pr.get("headRefName", "")
+        # GitHub's opening day (UTC) for this request, or None when it did not say.
+        opened_on = _opened_on(pr)
         paths = _changed_paths(n)
         if paths is None:
             # Knuth, from the walk: an unreachable API is not an empty diff.
@@ -935,9 +952,11 @@ def collect(
             anchor, anchor_detail = _anchor_for(branch, deep, n)
             st.stations = [
                 StationResult("2-council", Status.CANNOT_CHECK, "changed files unreadable"),
-                check_cold_read_station(branch, _LETTERS, _OWNERS),
+                check_cold_read_station(branch, _LETTERS, _OWNERS, opened_on),
                 check_scope_station(None, branch),
-                check_aria_station(branch, _LETTERS, author_of(pr.get("body"), branch, _OWNERS)),
+                check_aria_station(
+                    branch, _LETTERS, author_of(pr.get("body"), branch, _OWNERS, opened_on)
+                ),
                 check_draft_station(pr.get("isDraft")),
                 check_audit_station(
                     n,
@@ -976,10 +995,12 @@ def collect(
                 _other_seat_lenses(paths),
                 coverage=coverage,
             ),
-            check_cold_read_station(branch, _LETTERS, _OWNERS),
+            check_cold_read_station(branch, _LETTERS, _OWNERS, opened_on),
             check_scope_station(paths, branch),
             check_build_station(paths),
-            check_aria_station(branch, _LETTERS, author_of(pr.get("body"), branch, _OWNERS)),
+            check_aria_station(
+                branch, _LETTERS, author_of(pr.get("body"), branch, _OWNERS, opened_on)
+            ),
             check_test_station(paths, _dark_surfaces_or_none()),
             check_more_council_station(
                 branch,

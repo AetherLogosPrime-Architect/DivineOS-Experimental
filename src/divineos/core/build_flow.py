@@ -374,10 +374,20 @@ def _owner_file(branch: str, owners_dir: Path) -> Path:
 # prefix was refused (Aria): a local session started by either seat gets the same shape of
 # name, and her own count found one `claude/` branch from August (#432) outside the run, so the
 # prefix does not mark the run. What marks it is a fact only Dad holds, so the grant is the
-# owner file carrying his quoted words, plus the window of the run and the day this branch was
-# opened, which must fall inside it. The board prints the quote as the station's basis, so the
-# auditor sees WHY and can disagree. Nothing in a file stops a seat typing the line; that is the
-# weakness of every owner file, now with his words visible and checkable.
+# owner file carrying his quoted words and the window of the run. The board prints the quote
+# as the station's basis, so the auditor sees WHY and can disagree.
+#
+# A FILE IS SOMETHING A SEAT CAN TYPE, so two readers closed the two ways a typed file lies
+# (2026-11-27, same day):
+#  - Aria made a file for the REAL August branch (#432, opened 2026-08-18) with a forged
+#    `Opened: 2026-11-03` and the code accepted it. The opening day now comes from GitHub
+#    (`createdAt`, which the board already fetches), must fall inside the window, and the
+#    file's own `Opened:` line is only a note that must agree with it.
+#  - Aletheia: "bind it to something the seat can't write for itself". The quoted words must be
+#    found in the corpus of his actual words (`dad_corpus/dad_all.jsonl`, appended by the table as
+#    he types), not merely stated in the file.
+# Forging then takes a lie in three places, one of them GitHub. A branch with no open request
+# on the board has no GitHub day, which reads as cannot-check, the safe direction.
 _DECLARED_BY = re.compile(
     r'^Declared-by:\s*andrew,\s*(?P<date>\d{4}-\d{2}-\d{2}):\s*"(?P<quote>.+)"\s*$',
     re.MULTILINE,
@@ -388,12 +398,32 @@ _WINDOW = re.compile(
 )
 _OPENED = re.compile(r"^Opened:\s*(?P<day>\d{4}-\d{2}-\d{2})\s*$", re.MULTILINE)
 _MIN_QUOTE_CHARS = 20
+HIS_WORDS_CORPUS = Path.home() / ".divineos-shared" / "dad_corpus" / "dad_all.jsonl"
 
 
-def _cloud_declaration_in(text: str, branch: str) -> tuple[str | None, str]:
+def _squash(text: str) -> str:
+    """Case and spacing only: the one tolerance when matching his quote against his words."""
+    return " ".join(text.lower().split())
+
+
+def _quote_is_his(quote: str, corpus: Path | None) -> tuple[bool | None, str]:
+    """``(found, why)``: whether the quote is in the corpus of his recorded words, or None when
+    the corpus cannot be read (cannot check, never a pass)."""
+    path = corpus if corpus is not None else HIS_WORDS_CORPUS
+    try:
+        words = _squash(path.read_text(encoding="utf-8", errors="replace"))
+    except OSError as exc:
+        return (None, f"cannot read his recorded words to check the quote ({type(exc).__name__})")
+    return (_squash(quote) in words, "")
+
+
+def _cloud_declaration_in(
+    text: str, branch: str, opened_on: str | None = None, corpus: Path | None = None
+) -> tuple[str | None, str]:
     """``(basis, reason)``: his printed basis when the file grants the cloud lane to this
     non-``cloud/`` branch, else ``(None, why not)``. Refused for a seat's own prefix whatever
-    the file says: a seat prefix names a seat."""
+    the file says: a seat prefix names a seat. ``opened_on`` is the day GitHub says the request
+    was opened (``YYYY-MM-DD``), or None when the board has no such request."""
     if branch.startswith(tuple(f"{seat}/" for seat in SEATS)):
         return (
             None,
@@ -403,33 +433,57 @@ def _cloud_declaration_in(text: str, branch: str) -> tuple[str | None, str]:
     refusal = (
         f"the owner file names {HELPER_LANE} but this branch name does not begin with "
         f"{HELPER_BRANCH_PREFIX}; a name may withhold a pass, never grant one -- unless the "
-        "file carries Andrew's quoted word, the window of the run and the day this branch "
-        "was opened"
+        "file carries Andrew's quoted word found in his recorded words, and GitHub's opening "
+        "day for this branch falls inside the window of the run"
     )
     declared = _DECLARED_BY.search(text)
     if declared is None or len(declared.group("quote").strip()) < _MIN_QUOTE_CHARS:
         return (None, refusal)
     window = _WINDOW.search(text)
-    opened = _OPENED.search(text)
-    if window is None or opened is None:
-        return (None, refusal + " (this file has no Window and Opened lines)")
-    start, end, day = window.group("start"), window.group("end"), opened.group("day")
+    if window is None:
+        return (None, refusal + " (this file has no Window line)")
+    start, end = window.group("start"), window.group("end")
     if start > end:
         return (None, f"the declared window runs backwards ({start} to {end})")
-    if not start <= day <= end:
+    if opened_on is None:
         return (
             None,
-            f"this branch was opened {day}, outside the declared window {start} to {end}; "
-            "refused for that reason, not for its name",
+            "cannot check the opening day against GitHub: this branch has no open request on "
+            "the board, and the file's own date is not evidence",
+        )
+    if not start <= opened_on <= end:
+        return (
+            None,
+            f"GitHub says this branch was opened {opened_on}, outside the declared window "
+            f"{start} to {end}; refused for that reason, not for its name",
+        )
+    noted = _OPENED.search(text)
+    if noted is not None and noted.group("day") != opened_on:
+        return (
+            None,
+            f"the file's Opened note says {noted.group('day')} but GitHub says {opened_on}; "
+            "the file is the one that is wrong",
+        )
+    quote = declared.group("quote").strip()
+    found, why = _quote_is_his(quote, corpus)
+    if found is None:
+        return (None, why)
+    if not found:
+        return (
+            None,
+            "the quoted words are not found in his recorded words; a quote the file asserts "
+            "and the record does not hold is not his word",
         )
     basis = (
-        f'declared by andrew {declared.group("date")}: "{declared.group("quote").strip()}" '
-        f"(window {start} to {end}, this branch opened {day})"
+        f'declared by andrew {declared.group("date")}: "{quote}" '
+        f"(window {start} to {end}; opened per GitHub {opened_on}; quote found in his recorded words)"
     )
     return (basis, "")
 
 
-def cloud_declaration(branch: str, owners_dir: Path) -> str | None:
+def cloud_declaration(
+    branch: str, owners_dir: Path, opened_on: str | None = None, corpus: Path | None = None
+) -> str | None:
     """The printed basis when the cloud lane was granted to a non-``cloud/`` branch by his word,
     else None (a ``cloud/`` branch needs no declaration, so it has no basis to print)."""
     if branch.startswith(HELPER_BRANCH_PREFIX):
@@ -438,11 +492,13 @@ def cloud_declaration(branch: str, owners_dir: Path) -> str | None:
         text = _owner_file(branch, owners_dir).read_text(encoding="utf-8", errors="replace")
     except OSError:
         return None
-    basis, _ = _cloud_declaration_in(text, branch)
+    basis, _ = _cloud_declaration_in(text, branch, opened_on, corpus)
     return basis
 
 
-def declared_owner(branch: str, owners_dir: Path) -> tuple[str, str]:
+def declared_owner(
+    branch: str, owners_dir: Path, opened_on: str | None = None, corpus: Path | None = None
+) -> tuple[str, str]:
     """``(state, seat)`` — who declared themselves owner of this branch.
 
     States: ``declared`` with the seat, ``undeclared``, ``contested`` when the
@@ -450,6 +506,9 @@ def declared_owner(branch: str, owners_dir: Path) -> tuple[str, str]:
     not be put. Contested is NOT a failure and undeclared is NOT contested;
     collapsing any pair of these would rebuild the fault this whole file exists
     to remove.
+
+    ``opened_on`` (GitHub's opening day for this branch) and ``corpus`` (his recorded words)
+    matter only for the cloud lane on a branch not named ``cloud/``.
     """
     try:
         if not owners_dir.is_dir():
@@ -473,7 +532,7 @@ def declared_owner(branch: str, owners_dir: Path) -> tuple[str, str]:
     if not named:
         return ("undeclared", "")
     if HELPER_LANE in named and not branch.startswith(HELPER_BRANCH_PREFIX):
-        granted, why = _cloud_declaration_in(text, branch)
+        granted, why = _cloud_declaration_in(text, branch, opened_on, corpus)
         if granted is None:
             return ("cannot-read", why)
     if len(named) > 1:
@@ -516,7 +575,13 @@ def _reading_declared_by(reviewer: str, branch: str, letters_dir: Path) -> Stati
     )
 
 
-def check_cold_read_station(branch: str, letters_dir: Path, owners_dir: Path) -> StationResult:
+def check_cold_read_station(
+    branch: str,
+    letters_dir: Path,
+    owners_dir: Path,
+    opened_on: str | None = None,
+    corpus: Path | None = None,
+) -> StationResult:
     """Station 4 — a COLD READ of the finished work by a seat outside the making.
 
     WHAT THIS BUYS, and the word that matters is AFTER (Aria, 2026-09-12):
@@ -542,7 +607,7 @@ def check_cold_read_station(branch: str, letters_dir: Path, owners_dir: Path) ->
             "4-cold-read", Status.CANNOT_CHECK, f"letters dir not readable: {letters_dir}"
         )
 
-    state, detail = declared_owner(branch, owners_dir)
+    state, detail = declared_owner(branch, owners_dir, opened_on, corpus)
     if state == "cannot-read":
         return StationResult(
             "4-cold-read",
@@ -573,7 +638,7 @@ def check_cold_read_station(branch: str, letters_dir: Path, owners_dir: Path) ->
     if owner == HELPER_LANE:
         # Written by the cloud helper: neither seat wrote it, so either seat's
         # declared reading is a cold one.
-        basis = cloud_declaration(branch, owners_dir)
+        basis = cloud_declaration(branch, owners_dir, opened_on, corpus)
         basis_note = f" [lane basis: {basis}]" if basis else ""
         for seat in SEATS:
             result = _reading_declared_by(seat, branch, letters_dir)
@@ -621,7 +686,13 @@ def declared_author(body: str | None) -> str | None:
     return match.group("who").lower() if match else None
 
 
-def author_of(body: str | None, branch: str, owners_dir: Path) -> str | None:
+def author_of(
+    body: str | None,
+    branch: str,
+    owners_dir: Path,
+    opened_on: str | None = None,
+    corpus: Path | None = None,
+) -> str | None:
     """Who wrote a request: its own ``Author:`` line, else the cloud helper's lane.
 
     The body's declaration wins, as before. With none, an owner file that says
@@ -631,7 +702,7 @@ def author_of(body: str | None, branch: str, owners_dir: Path) -> str | None:
     declared = declared_author(body)
     if declared is not None and declared.lower() in SEATS:
         return declared  # a seat's own name on its own request is never overridden by a file
-    state, seat = declared_owner(branch, owners_dir)
+    state, seat = declared_owner(branch, owners_dir, opened_on, corpus)
     if state == "declared" and seat == HELPER_LANE and declared in (None, HELPER_LANE, "claude"):
         # The owner file grants the lane: the branch is `cloud/...`, or it carries Andrew's
         # quoted word and the window of the run (``declared_owner``). A body that says nothing,
