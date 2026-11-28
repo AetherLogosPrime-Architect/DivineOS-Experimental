@@ -34,8 +34,9 @@ if Y or Z* encoded structurally so the optimizer can't reason it away.
 
 ## Handshake to phase 2
 
-Marker JSON at ``~/.divineos/auto_cycle_phase1_done.json``. Phase 2 reads on
-invocation, proceeds if present, deletes when phase 2 completes. Schema is
+Marker JSON at ``marker_path()`` (``auto_cycle_phase1_done.json`` in this house's
+data folder, which is ``~/.divineos`` only for the default house). Phase 2 reads
+on invocation, proceeds if present, deletes when phase 2 completes. Schema is
 locked with Aria per the coordination letter.
 
 ## Falsifier (per Aria's dissent-flag)
