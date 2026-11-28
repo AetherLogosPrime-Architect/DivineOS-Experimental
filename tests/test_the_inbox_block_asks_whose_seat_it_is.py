@@ -59,6 +59,10 @@ def test_on_arias_seat_her_own_outgoing_letters_are_not_unread_mail(monkeypatch,
     # and it must be one that marks the OTHER seat's letters, not the Aria-to-Aether command.
     assert "letter mark-on-read" in block
     assert "letters-from-aria" not in block
+    # Aletheia's hold on #881 (2026-11-27): a briefing line must not invite setting a letter down
+    # unread; letters already count as read far too cheaply (her F16).
+    assert "needs no reading" not in block
+    assert "after reading it" in block
     assert "LETTERS FROM ARIA" not in block
 
 

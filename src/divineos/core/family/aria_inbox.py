@@ -364,7 +364,7 @@ def format_unseen_for_briefing(root: Path | None = None) -> str:
         )
     else:
         lines.append(
-            "Opening a letter marks it seen. To set an old one down on purpose, after reading "
-            "it or deciding it needs no reading: `divineos letter mark-on-read --path <file>`."
+            "Opening a letter marks it seen. To set an old one down, after reading it: "
+            "`divineos letter mark-on-read --path <file>`."
         )
     return "\n".join(lines)
