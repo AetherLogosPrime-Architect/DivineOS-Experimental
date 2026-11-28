@@ -790,6 +790,7 @@ src/divineos/
     hold_log.py                A record of each time the room hold and the follow-through hold stopped a reply or let one pass.
     stall_on_promise.py        A promise to act is followed by the act, when no one is there to push.
     memory_linkage_own_words.py The memory link, read through what I said last turn, apart from what he said.
+    reach_open_prs.py          Open pull requests as prior art for `reach open`.
 
   analysis/
     _session_types.py          Session analysis type definitions
