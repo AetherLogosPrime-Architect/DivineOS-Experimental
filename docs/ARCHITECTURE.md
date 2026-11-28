@@ -111,6 +111,7 @@ src/divineos/
     prior_art_commands.py      already-built — station 0: does this exist before I build it
     game_walk_commands.py      `divineos game-walk file` — enumerate the routes around a mechanism and cost each one. Required on every council-tier edit since 2026-09-16; prints the walk back so a thin one is visibly thin at filing time rather than discovered later.
     landing_commands.py        `divineos landing` — where each waiting fix stands toward the external auditor (NEVER TOLD, NO ANSWER, CHANGED, CONFIRMED, READY), worked out from the letters and live heads; `--request` prints the confirm-only letter. Read-only.
+    cold_read_commands.py      `divineos cold-read start <branch>` — the starter page for a cold read: what is right first (facts only: files, tests, symbols, and the changed tests run with and without the change, a skip must say why), then findings as pairs, then a grade slot. Judges none of the reader's words. Dad 2026-11-27: so what works is recognized as well as what doesnt.
     operator_ask_commands.py   `divineos ask-andrew` / `asks` / `ask-resolve` — the reachable surface for core/operator_asks.py, which had a store and no command from 2026-08-19 until 2026-09-16 and so sat empty, indistinguishable from nothing needing him. An open ask now HOLDS new substrate work (.claude/hooks/an-open-ask-holds-the-work.sh), which is the half of his correction the re-raise never covered: *"when you ask me something, and never wait for my reply.. why bother asking?"*
     psf_commands.py            pending structural-fix obligations (list, mark-done)
     question_hold_commands.py  question-hold / release: see or escape the wait a question to Dad opens
@@ -790,6 +791,7 @@ src/divineos/
     hold_log.py                A record of each time the room hold and the follow-through hold stopped a reply or let one pass.
     stall_on_promise.py        A promise to act is followed by the act, when no one is there to push.
     memory_linkage_own_words.py The memory link, read through what I said last turn, apart from what he said.
+    cold_read_starter.py       The starter page for a cold read: what is right first, then findings as pairs.
 
   analysis/
     _session_types.py          Session analysis type definitions
