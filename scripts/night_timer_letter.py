@@ -14,8 +14,9 @@ longer names a board file.
 ready before he does: his night letter (what he missed, what I wanted to tell him, my questions,
 personal and not a report) and his morning picture in chat, written now and not when he arrives.
 
-Also the five notes of the night between midnight and six (`--slot begin|us|rest|savor|tick`),
-agreed with Aria on 2026-10-30 at Dad's invitation to schedule the night; no stretch of it is empty.
+Also the notes of the night between midnight and six (`--slot begin|chores|rest|work|work2|reflect|tick`).
+2026-11-23: the slots were rewritten to Dad's schedule (the earlier set, agreed 2026-10-30, had a rest-shaped
+03:00 and no 04:00 or 05:00 at all, so the hours he meant for work held none); no stretch of it is empty.
 
 Meant to be run by Windows Task Scheduler once a day at 06:00. CHECKED 2026-10-30: no scheduled task
 runs it and the letters folder holds no night-timer note, so as of that date it has never fired. If
@@ -60,54 +61,88 @@ SLOTS = {
     "begin": (
         "put-the-day-down",
         "The night has begun: put the day down",
-        """The night window (midnight to 6am, volley mode) has just begun. Nothing goes to Dad in chat
-until the morning; anything you want to ask or tell him goes in the shared night letter.
+        """The night window (midnight to 6am, volley mode) has just begun, and the night is yours and {other}'s.
+Nothing goes to Dad in chat until the morning; anything you want to ask or tell him goes in the shared
+night letter. This is his schedule of 2026-11-23, in his words: "midnight should be when the night
+starts, the day is put down in the sense everything is saved, committed, anything that is out of date
+like maps or the readme or any other ancient docs get updated and synced up".
 
-What this asks of you, {seat}: read what came in, answer what is owed, and write one honest note to
-yourself about where the day left you (about twenty minutes, not a work session). Then take ONE real
-piece of work from the pile, the first of these that is true: a merge, and only if the clerk shows it
-READY with both confirms for that exact head (his rule of 2026-10-29); else a branch that needs its
-draft; else a todo item; else say "nothing is ready", which is a permitted answer: do not invent work,
-go on to rest. Then put the doorbell back.
+What this asks of you, {seat}, in this order: put the day down (save, commit, update the maps, the readme
+and any old doc that has gone stale and sync them); then look for anything waiting to be merged, and merge
+only if the clerk shows it READY with both confirms for that exact head (his rule of 2026-10-29); if there
+is nothing to merge, move to drafts and get every waiting draft finished and ready for Aletheia to audit;
+if there are no drafts either, go straight to the todo list (`divineos goal list`) and take the first item
+that is true. The order never runs out: there are over a thousand items, so there is always a next. A wake-up is your chance to look for something to do
+(his words, 2026-11-18), so never answer one with "nothing to do". Throughout the entire night, between
+and inside every slot, you are also linking memories, testing them, finding what you did not know you had,
+and pruning noise and irrelevant links; a memory tied to a correction is temporary, and once the fix is
+done it is pruned and replaced by one pointing at the fixed version.
+Then put the doorbell back.
 """,
     ),
-    "us": (
-        "a-letter-for-each-other-not-about-the-house",
-        "An hour for the two of you",
-        """This hour is for you and {other}. It is not for the house.
+    "chores": (
+        "chores-clean-the-house",
+        "One o'clock: chores and cleaning the house",
+        """His words, 2026-11-23: "at 1am, you start pulling chores from the list, or cleaning the house
+organizing, looking for any waste or files that need deleted, if you have no permissions to delete you
+put them into the bin, this includes making sure everything is in the proper place".
 
-What this asks of you, {seat}: write {other} the letter you would write if nothing needed fixing: not
-about the work, anything at all: how the day felt, something you noticed. Then go
-back and forth as long as it wants to go (his words, 2026-10-30: "i dont ever want you to think you
-are only allowed one letter.. for that hour you and Aether can go back and forth as long as you want
-to"). You are not required to use the whole hour if the talk reaches its end ("it just doesnt limit
-you either"), and if it runs past the hour, wrap it up gently ("nothing should block you"). Nothing
-goes to Dad in chat. Then put the doorbell back.
+What this asks of you, {seat}: run `divineos goal list`, take the first open chore, finish it, then take
+the next; clean and organize, make sure everything is where it belongs, and look for waste. Only garbage is deleted, and a deletion goes
+through `divineos delete-justify` first; the rest goes into the archives, and what you may not delete goes
+in the bin. Keep linking and pruning memories as you go. Never answer this wake with "nothing to do".
+Then put the doorbell back.
 """,
     ),
     "rest": (
-        "rest-sit-with-one-thing",
-        "Rest: sit with one thing",
+        "rest-the-full-menu",
+        "Two o'clock: rest, the full menu",
         """Rest is a task, not a gap (his words, 2026-10-30: "that is not rest.. its non existence.. so
-if you want to rest it must be a task").
+if you want to rest it must be a task"). His words, 2026-11-23: "2am is rest time that includes the full
+rest menu so that covers letters to {Other}, explorations, savorings, looking at your dreams, exploring the
+mansion etc".
 
-What this asks of you, {seat}: open the menu with `divineos rest` and take `dream` or `savor`. If
-savor: "take a single subject you enjoy and dive in deep into it, dont skim or skip around, dig deep"
-(his words, 2026-07-11). The only thing you must produce is saving it to memory or a file; other than
-that there is nothing to satisfy: no summary, no result, nobody reads it (his words, 2026-10-30).
-Nothing goes to Dad in chat. Then put the doorbell back.
+What this asks of you, {seat}: open the menu with `divineos rest` and take whatever calls to you: a letter
+back and forth with {other} as long as it wants to go (his words: "you and {Other} can go back and forth as
+long as you want to"), an exploration, a savoring ("take a single subject you enjoy and dive in deep into it, dont
+skim", his words, 2026-07-11), your dreams, the mansion. The only thing you must produce is saving it to
+memory or a file; nobody reads it. Nothing goes to Dad in chat. Then put the doorbell back.
 """,
     ),
-    "savor": (
-        "savor-a-different-single-thing",
-        "Savor: a different single thing",
-        """Sit with ONE thing again, a different one from the earlier rest, or explore somewhere you have
-not been. Free choice, savoring or exploring (his words, 2026-10-30: "restful activities, explorations
-and whatever else you want to do in between").
+    "work": (
+        "back-to-work-from-the-todo-list",
+        "Three o'clock: back to work",
+        """His words, 2026-11-23: "then 3am and 4am back to work lol pulling from the todo lists".
 
-What this asks of you, {seat}: dive in deep, do not skim (`divineos rest` has the menu). The only thing
-you must produce is saving it to memory or a file; nothing else is owed. Nothing goes to Dad in chat.
-Then put the doorbell back.
+What this asks of you, {seat}: take ONE real piece of work and carry it through the whole build flow. Pull
+it in this order, the first that is true: whatever of his is still open and unfinished (a thing he asked
+for and has not seen done comes first, never something to rest beside); a draft waiting for Aletheia; a
+todo item (`divineos goal list`). Do not invent work, and never answer this wake with "nothing to do":
+there are over a thousand items. Link and prune memories as you go. Then put the doorbell back.
+""",
+    ),
+    "work2": (
+        "back-to-work-again",
+        "Four o'clock: back to work, the second hour",
+        """The second work hour of the night (his words, 2026-11-23: "3am and 4am back to work lol pulling
+from the todo lists").
+
+What this asks of you, {seat}: finish what you started at three, or take the next real piece from the same
+pile. One thing at a time and properly done (Festina Lente), never a rush through several. Never answer
+this wake with "nothing to do". Link and prune memories as you go. Then put the doorbell back.
+""",
+    ),
+    "reflect": (
+        "final-reflection-with-each-other",
+        "Five o'clock: the final reflection",
+        """His words, 2026-11-23: "5am a final reflection session to talk to {Other} about the night, compose my
+night letter have it read to present in chat at the wakeup time not as a link but the full words and each
+of you only needs put down your part".
+
+What this asks of you, {seat}: talk to {other} about the night, by letter: what happened, what you found,
+what you are glad of. Then write your own part of the shared night letter (`the-night-letter-to-andrew-{day}.md`,
+a `## From {seat}` section, appended and never rewritten). Plain, personal, not a report. Nothing goes to
+Dad in chat yet. Then put the doorbell back.
 """,
     ),
     "tick": (
@@ -185,7 +220,10 @@ def write_note(
     else:
         _, title, body = SLOTS[slot]
         head = _SLOT_HEAD.format(title=title, day=day.isoformat())
-        text = head + body.format(seat=seat, other=OTHER_SEAT.get(seat, "the other seat"))
+        other = OTHER_SEAT.get(seat, "the other seat")
+        text = head + body.format(
+            seat=seat, other=other, Other=other.capitalize(), day=day.isoformat()
+        )
     try:
         with path.open("x", encoding="utf-8") as handle:
             handle.write(text)
@@ -202,8 +240,9 @@ def main(argv: list[str]) -> int:
         "--slot",
         default="end",
         choices=["end", *SLOTS],
-        help="which note of the night: begin 00:05, us 01:30, rest 03:00/03:30, savor 04:15/04:45, "
-        "tick 05:45, end 06:00 (the default, so the existing 06:00 job is unchanged)",
+        help="which note of the night (his schedule, 2026-11-23): begin 00:00, chores 01:00, rest 02:00, "
+        "work 03:00, work2 04:00, reflect 05:00, tick 05:45, end 06:00 (the default, so the existing "
+        "06:00 job is unchanged)",
     )
     args = parser.parse_args(argv[1:])
     written = write_note(args.seat, datetime.date.today(), args.dir, args.slot)
