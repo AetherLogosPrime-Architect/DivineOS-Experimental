@@ -95,7 +95,25 @@ def _recently_added_files(days: int, repo_root: Path) -> list[str]:
     Uses `git log --diff-filter=A` for added-only files. Quiet on
     git errors (returns []) so the probe doesn't break the compass
     on a non-git checkout or shallow clone.
+
+    A shallow clone is where the promise was not kept: its one commit looks like a root
+    commit that added every file, so the whole repo (980 files) listed as "recent" and the
+    probe scanned all of it instead of the ~20 truly recent, which brushed CI's 30s limit
+    and turned main red after merges. History that was never fetched cannot say what is
+    recent, so a shallow repo answers "unknown", which here is [].
     """
+    try:
+        shallow = subprocess.run(
+            ["git", "-C", str(repo_root), "rev-parse", "--is-shallow-repository"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    if shallow.stdout.strip() == "true":
+        return []
     try:
         out = subprocess.run(
             [
