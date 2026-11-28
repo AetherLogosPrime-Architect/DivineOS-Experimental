@@ -54,6 +54,67 @@ case "$OUT_TARGET" in
 esac
 touch "$SEEN"
 if [ ! -s "$SEEN" ]; then list_mine > "$SEEN"; fi
+# AN ANSWERED LETTER IS NOT NEWS (2026-11-03: seen four times in one night). The announced
+# list learns only from this bell's own rings, so a letter I read and replied to some other
+# way (in the session, while the bell was down) was never on it, and the next arm rang for it
+# at once, waking me for nothing. So at arm time, for letters already present, a letter is
+# marked announced when I have since written to THAT SAME SENDER. Two readers found two holes
+# in the first version, both closed here:
+#  - ANSWERED MEANS A REPLY TO THE SAME SENDER. My newest letter to Aria says nothing about an
+#    unread letter from Aletheia, so replies are tracked per sender, never as one newest-of-all.
+#  - THE AUTHOR'S TIME IS NOT THE ARRIVAL TIME. cp -p keeps the author's modification time, so a
+#    letter written before my reply but delivered after it looked answered by mtime alone. The
+#    kernel stamps when a file landed here (ctime) and a copy cannot set it, so a letter is
+#    answered only when it ARRIVED before my reply did, and was also written before it.
+# Anything unreadable or equal counts as NOT answered, so the bell rings: wrongly waking me is
+# cheap, a dropped letter is not. Letters that land after arming are never touched by this.
+# ONE LISTING, NOT ONE LOOKUP PER LETTER (Aletheia's live run, 2026-11-27: against 2,417 real
+# letters the first version spawned a find per file and a grep per file, took over nine minutes
+# to arm, and had marked 1,157 when stopped; no bell listens while it arms). Both timestamps of
+# every letter that matters come from a single find, the announced list is read once into a
+# table, and everything after that is shell arithmetic with no process started per letter.
+# Needs bash 4 or later (associative arrays), as the rest of this script already does. A file name
+# with a tab or a newline in it would split a row of the listing below; letters never carry one,
+# and a split row fails soft (that letter is left unanswered, so the bell rings for it).
+to_ns() {  # $1 = "seconds.fraction"; sets NS to nanoseconds, or returns 1 when it is not a time
+  local t="$1" sec frac
+  [[ "$t" =~ ^[0-9]+(\.[0-9]+)?$ ]] || return 1
+  sec="${t%%.*}"
+  frac="${t#*.}"
+  [ "$frac" != "$t" ] || frac=0
+  frac="${frac}000000000"
+  NS=$(( 10#$sec * 1000000000 + 10#${frac:0:9} ))
+}
+declare -A arrived wrote_at  # file name -> arrival (ctime) and author's (mtime) nanoseconds
+while IFS=$'\t' read -r fname ctime mtime; do
+  [ -n "$fname" ] || continue
+  to_ns "$ctime" || continue  # an unreadable arrival time leaves this letter out: it answers nothing, is answered by nothing
+  arrived["$fname"]="$NS"
+  if to_ns "$mtime"; then wrote_at["$fname"]="$NS"; fi
+done < <(find -H "$DIR" -maxdepth 1 ! -type d \( -name "${MEMBER}-to-*" -o -name "*-to-${MEMBER}-*" \) -printf '%f\t%C@\t%T@\n' 2>/dev/null)  # fail-soft: an unlistable folder leaves the tables empty, so nothing is marked answered and the bell rings for everything, which is the safe direction
+declare -A reply_arrived  # sender -> arrival time of my newest letter to that sender
+for fname in "${!arrived[@]}"; do
+  case "$fname" in "${MEMBER}"-to-*) ;; *) continue ;; esac
+  rest="${fname#"${MEMBER}"-to-}"
+  to="${rest%%-*}"
+  t="${arrived[$fname]}"
+  if [ -z "${reply_arrived[$to]:-}" ] || [ "$t" -gt "${reply_arrived[$to]}" ]; then reply_arrived[$to]="$t"; fi
+done
+declare -A announced  # the announced list, read once
+while IFS= read -r line; do announced["$line"]=1; done < "$SEEN"
+while IFS= read -r name; do
+  [ -n "$name" ] || continue
+  [ -z "${announced[$name]:-}" ] || continue
+  from="${name%%-to-*}"
+  [ -n "${reply_arrived[$from]:-}" ] || continue  # no reply to this sender: unanswered
+  came="${arrived[$name]:-}"
+  wrote="${wrote_at[$name]:-}"
+  [ -n "$came" ] && [ -n "$wrote" ] || continue  # a time that could not be read counts as not answered
+  if [ "$came" -lt "${reply_arrived[$from]}" ] && [ "$wrote" -lt "${reply_arrived[$from]}" ]; then
+    echo "$name" >> "$SEEN"
+    announced["$name"]=1
+  fi
+done < <(list_mine)
 echo "doorbell armed for ${MEMBER}${OVERRIDE_NOTE} $(date -u +%FT%TZ)"
 # Andrew 2026-09-26: it lasts 8 hours, and when it expires the exit wakes me to
 # reset it -- so it gets checked on, rather than running forever unwatched.
