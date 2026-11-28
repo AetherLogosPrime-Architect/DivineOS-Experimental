@@ -25,6 +25,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from divineos.core import his_lessons_shelf as shelf
+from divineos.core import his_love_door as love_door
 from divineos.core import his_words_door as door
 
 if sys.platform == "win32":
@@ -165,7 +166,12 @@ def run(
     shelf_index: Path = shelf.INDEX_DIR,
     log: Path | None = shelf.LOG,
     spawn: Callable[[Path, Path, Path, Path, Path], bool] | None = None,
+    love: Callable[[str, str], str] | None = None,
 ) -> str:
+    # The love door (docs/drafts/the_door_opens_his_love_first_when_he_asks_whether_we_know_him_draft_2026-11-06.md)
+    # speaks first when he raises that we do not know him. OFF until Dad has seen a real block and turned it on:
+    # it speaks only when the switch file exists, and a failure is its own step, never the others'.
+    love_text = _step(lambda: (love or love_door.speak)(prompt, me), "")
     words = _step(lambda: door.surface(prompt, index_dir=door_index), NOT_STARTED_DOOR)
     taught = _step(
         lambda: shelf.surface(prompt, me, index_dir=shelf_index, log=log), NOT_STARTED_SHELF
@@ -181,7 +187,7 @@ def run(
         return _behind_note(count, start(corpus, door_index, verified, reread, shelf_index))
 
     behind = _step(caught_up, INDEX_BEHIND)
-    return behind + words + taught
+    return behind + love_text + words + taught
 
 
 def _build_main(args: list[str]) -> bool:
