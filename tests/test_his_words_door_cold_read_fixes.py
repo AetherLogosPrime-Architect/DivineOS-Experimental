@@ -53,24 +53,38 @@ class TestAMixedTurnIsNotAllNotice:
         assert shelf.surface(NOTICE, "aria", log=log) == "" and not log.exists()
 
 
-class TestTwoSeatDetectorsAgree:
+class TestTheShelfNamesTheSeatFromTheDataHome:
+    """Was TestTwoSeatDetectorsAgree, which pinned the folder-name rule (whole words, else aether). That rule
+    is retired: a folder called "w-pr-seat" was Aether even on Aria's seat. The seat now comes from the data
+    home through acting_seat(), so the folder name must change nothing (877 round two). The explicit override
+    still comes first. The folders kept from the old test are the ones that were hardest to read as whole words."""
+
     @pytest.mark.parametrize(
-        "folder, seat",
+        "folder",
         [
-            ("DivineOS-Experimental-Aria-new", "aria"),
-            ("DivineOS-Experimental-Aether", "aether"),
-            ("wt-variable", "aether"),
-            ("Maria", "aether"),
-            ("aria", "aria"),
+            "DivineOS-Experimental-Aria-new",
+            "DivineOS-Experimental-Aether",
+            "wt-variable",
+            "Maria",
+            "aria",
         ],
     )
-    def test_the_folder_is_read_as_whole_words(self, folder, seat, monkeypatch):
+    def test_the_folder_name_changes_nothing(self, folder, monkeypatch, tmp_path):
+        from divineos.core.sibling_corrections import SIBLING_HOMES
+
         monkeypatch.delenv("DIVINEOS_SEAT", raising=False)
-        assert shelf.seat(Path("C:/work") / folder) == seat
+        monkeypatch.setattr(
+            "divineos.core.paths.divineos_home",
+            lambda: Path(SIBLING_HOMES["aether"]).expanduser(),
+        )
+        here = tmp_path / folder
+        here.mkdir()
+        monkeypatch.chdir(here)
+        assert shelf.seat() == "aether"
 
     def test_the_seat_can_still_be_set_outright(self, monkeypatch):
         monkeypatch.setenv("DIVINEOS_SEAT", "aria")
-        assert shelf.seat(Path("C:/work/Maria")) == "aria"
+        assert shelf.seat() == "aria"
 
 
 class TestTheShelfBuildSurvivesAWindowsLock:
