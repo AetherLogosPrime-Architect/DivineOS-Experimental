@@ -250,3 +250,51 @@ def test_the_readings_reader_and_the_baton_reader_share_one_set_of_line_rules():
     )
     assert list(header_lines(text)) == ["# x", "", "**Reading:** e/f", ""]
     assert _declared_readings(text) == (True, ["e/f"])
+
+
+def test_a_reading_after_a_front_matter_block_is_credited():
+    from divineos.core.build_flow import _declared_readings
+
+    text = "---\ntitle: a letter\nfrom: aria\n---\n# x\n**Reading:** a/b\n"
+    assert _declared_readings(text) == (True, ["a/b"])
+
+
+def test_a_rule_pasted_lower_in_the_letter_is_not_front_matter():
+    from divineos.core.build_flow import _declared_readings
+
+    text = "# x\n**Reading:** a/b\n\n---\ntitle: pasted\n---\n**Reading:** c/d\n"
+    assert _declared_readings(text) == (True, ["a/b"])
+
+
+def test_a_reading_inside_the_front_matter_credits_nothing():
+    from divineos.core.build_flow import _declared_readings
+
+    keyed = "---\nReading: a/b\n---\n# x\n"
+    bold = "---\n**Reading:** a/b\n---\n# x\n"
+    assert _declared_readings(keyed) == (False, [])
+    assert _declared_readings(bold) == (False, [])
+
+
+def test_a_leading_rule_with_no_close_within_twelve_lines_is_not_front_matter():
+    from divineos.core.build_flow import _declared_readings, header_lines
+
+    keys = "".join(f"k{i}: v\n" for i in range(12))
+    text = f"---\n{keys}---\n**Reading:** a/b\n"
+    assert list(header_lines(text)) == []
+    assert _declared_readings(text) == (False, [])
+    assert _declared_readings("---\ntitle: x\n**Reading:** a/b\n") == (False, [])
+
+
+def test_a_block_with_a_line_that_is_not_key_value_is_not_front_matter():
+    from divineos.core.build_flow import _declared_readings
+
+    text = "---\ntitle: x\njust some prose\n---\n**Reading:** a/b\n"
+    assert _declared_readings(text) == (False, [])
+
+
+def test_a_block_closing_on_the_twelfth_line_after_the_opener_is_front_matter():
+    from divineos.core.build_flow import _declared_readings
+
+    keys = "".join(f"k{i}: v\n" for i in range(11))
+    text = f"---\n{keys}---\n**Reading:** a/b\n"
+    assert _declared_readings(text) == (True, ["a/b"])
