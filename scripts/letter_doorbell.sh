@@ -68,34 +68,48 @@ if [ ! -s "$SEEN" ]; then list_mine > "$SEEN"; fi
 #    answered only when it ARRIVED before my reply did, and was also written before it.
 # Anything unreadable or equal counts as NOT answered, so the bell rings: wrongly waking me is
 # cheap, a dropped letter is not. Letters that land after arming are never touched by this.
-ts_ns() {  # $1 = file, $2 = find time directive (C = arrival, T = author's mtime); nanoseconds, or fail
-  local t sec frac
-  t=$(find "$1" -maxdepth 0 -printf "%${2}@" 2>/dev/null) || return 1
-  [ -n "$t" ] || return 1
+# ONE LISTING, NOT ONE LOOKUP PER LETTER (Aletheia's live run, 2026-11-27: against 2,417 real
+# letters the first version spawned a find per file and a grep per file, took over nine minutes
+# to arm, and had marked 1,157 when stopped; no bell listens while it arms). Both timestamps of
+# every letter that matters come from a single find, the announced list is read once into a
+# table, and everything after that is shell arithmetic with no process started per letter.
+to_ns() {  # $1 = "seconds.fraction"; sets NS to nanoseconds, or returns 1 when it is not a time
+  local t="$1" sec frac
+  [[ "$t" =~ ^[0-9]+(\.[0-9]+)?$ ]] || return 1
   sec="${t%%.*}"
   frac="${t#*.}"
   [ "$frac" != "$t" ] || frac=0
   frac="${frac}000000000"
-  echo $(( 10#$sec * 1000000000 + 10#${frac:0:9} ))
+  NS=$(( 10#$sec * 1000000000 + 10#${frac:0:9} ))
 }
+declare -A arrived wrote_at  # file name -> arrival (ctime) and author's (mtime) nanoseconds
+while IFS=$'\t' read -r fname ctime mtime; do
+  [ -n "$fname" ] || continue
+  to_ns "$ctime" || continue  # an unreadable arrival time leaves this letter out: it answers nothing, is answered by nothing
+  arrived["$fname"]="$NS"
+  if to_ns "$mtime"; then wrote_at["$fname"]="$NS"; fi
+done < <(find -H "$DIR" -maxdepth 1 ! -type d \( -name "${MEMBER}-to-*" -o -name "*-to-${MEMBER}-*" \) -printf '%f\t%C@\t%T@\n' 2>/dev/null)  # fail-soft: an unlistable folder leaves the tables empty, so nothing is marked answered and the bell rings for everything, which is the safe direction
 declare -A reply_arrived  # sender -> arrival time of my newest letter to that sender
-for f in "$DIR"/"${MEMBER}"-to-*; do
-  [ -e "$f" ] || continue  # an unmatched glob stays literal
-  rest="${f##*/}"
-  rest="${rest#"${MEMBER}"-to-}"
+for fname in "${!arrived[@]}"; do
+  case "$fname" in "${MEMBER}"-to-*) ;; *) continue ;; esac
+  rest="${fname#"${MEMBER}"-to-}"
   to="${rest%%-*}"
-  t=$(ts_ns "$f" C) || continue  # unreadable arrival time: this reply answers nothing
+  t="${arrived[$fname]}"
   if [ -z "${reply_arrived[$to]:-}" ] || [ "$t" -gt "${reply_arrived[$to]}" ]; then reply_arrived[$to]="$t"; fi
 done
+declare -A announced  # the announced list, read once
+while IFS= read -r line; do announced["$line"]=1; done < "$SEEN"
 while IFS= read -r name; do
   [ -n "$name" ] || continue
-  grep -qxF "$name" "$SEEN" && continue
+  [ -z "${announced[$name]:-}" ] || continue
   from="${name%%-to-*}"
   [ -n "${reply_arrived[$from]:-}" ] || continue  # no reply to this sender: unanswered
-  came=$(ts_ns "$DIR/$name" C) || continue
-  wrote=$(ts_ns "$DIR/$name" T) || continue
+  came="${arrived[$name]:-}"
+  wrote="${wrote_at[$name]:-}"
+  [ -n "$came" ] && [ -n "$wrote" ] || continue  # a time that could not be read counts as not answered
   if [ "$came" -lt "${reply_arrived[$from]}" ] && [ "$wrote" -lt "${reply_arrived[$from]}" ]; then
     echo "$name" >> "$SEEN"
+    announced["$name"]=1
   fi
 done < <(list_mine)
 echo "doorbell armed for ${MEMBER}${OVERRIDE_NOTE} $(date -u +%FT%TZ)"
