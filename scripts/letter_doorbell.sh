@@ -73,6 +73,9 @@ if [ ! -s "$SEEN" ]; then list_mine > "$SEEN"; fi
 # to arm, and had marked 1,157 when stopped; no bell listens while it arms). Both timestamps of
 # every letter that matters come from a single find, the announced list is read once into a
 # table, and everything after that is shell arithmetic with no process started per letter.
+# Needs bash 4 or later (associative arrays), as the rest of this script already does. A file name
+# with a tab or a newline in it would split a row of the listing below; letters never carry one,
+# and a split row fails soft (that letter is left unanswered, so the bell rings for it).
 to_ns() {  # $1 = "seconds.fraction"; sets NS to nanoseconds, or returns 1 when it is not a time
   local t="$1" sec frac
   [[ "$t" =~ ^[0-9]+(\.[0-9]+)?$ ]] || return 1

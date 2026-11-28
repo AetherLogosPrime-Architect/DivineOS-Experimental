@@ -42,8 +42,30 @@ def _letter(path: Path, age_secs: int) -> None:
     os.utime(path, (t, t))
 
 
+def _link_dir(link: Path, target: Path) -> str:
+    """Make `link` a link to `target`: a symlink if allowed, else (Windows) a junction, which needs no
+    privilege. Returns which kind it made; raises OSError only when neither can be made, so the linked-folder
+    test runs on the machine that has the problem and skips only where it truly cannot be built."""
+    try:
+        link.symlink_to(target, target_is_directory=True)
+        return "symlink"
+    except OSError:
+        if os.name != "nt":
+            raise
+    done = subprocess.run(
+        ["cmd", "/c", "mklink", "/J", str(link), str(target)], capture_output=True, text=True
+    )
+    if done.returncode != 0 or not link.exists():
+        raise OSError(f"could not make a symlink or a junction: {done.stdout} {done.stderr}")
+    return "junction"
+
+
 def _arm(
-    tmp_path: Path, pairs: int, patience: float = 120.0, linked: bool = False
+    tmp_path: Path,
+    pairs: int,
+    patience: float = 120.0,
+    linked: bool = False,
+    directory_named_like_a_letter: bool = False,
 ) -> tuple[str, int, list[str]]:
     """Arm the bell as aether against `pairs` answered letters; return (output, find calls, marker).
 
@@ -57,9 +79,15 @@ def _arm(
         real = tmp_path / "real_letters"
         real.mkdir(parents=True)
         shared.mkdir(parents=True)
-        letters.symlink_to(real, target_is_directory=True)
+        _link_dir(letters, real)
+        letters = real  # files are written through the real folder; the bell reads through the link
     else:
         letters.mkdir(parents=True)
+    if directory_named_like_a_letter:
+        # A name the bell's own listing returns (it tests existence) but the timestamp listing skips (it
+        # excludes directories): the two definitions of "my letters" disagree here, and the safe direction
+        # is that the bell still rings for it.
+        (letters / "aria-to-aether-2026-11-03-adir.md").mkdir()
     (shared / ".aether_doorbell_announced").write_bytes(b"aria-to-aether-2026-01-01-ancient.md\n")
     for i in range(pairs):
         _letter(letters / f"aria-to-aether-2026-11-03-in{i:04d}.md", 500)
@@ -91,7 +119,10 @@ def _arm(
     out_file = tmp_path / "bell_out.txt"
     with out_file.open("w", encoding="utf-8") as sink:
         proc = subprocess.Popen(
-            [BASH, "-c", f'bash "{BELL.as_posix()}" aether'],
+            # The trailing `; :` keeps this shell alive as the bell's parent: with one command, bash -c
+            # replaces itself with the bell, and the bell's own parent check cannot see the Windows
+            # process that started it and exits silently (the older bell tests do the same).
+            [BASH, "-c", f'bash "{BELL.as_posix()}" aether; :'],
             env=env,
             stdout=sink,
             stderr=subprocess.STDOUT,
@@ -130,18 +161,33 @@ def test_arming_makes_a_constant_number_of_find_calls_however_many_letters(tmp_p
     assert calls_big <= calls_small + 1, (calls_small, calls_big)
 
 
-def test_a_letters_folder_that_is_a_link_still_has_its_answered_letters_marked(tmp_path):
+def _assert_answered_letters_were_not_announced(out: str, pairs: int) -> None:
+    """The answered letters must be ABSENT from what the bell announced. Reading the marker file would
+    prove nothing: the final ring appends every letter it announces to that same file, so an answered letter
+    that was wrongly announced would also end up in the marker. The announcement is the evidence."""
+    assert "LETTER ARRIVED" in out, f"control: the bell must have rung at all: {out[-300:]}"
+    rung_for = [f"in{i:04d}.md" for i in range(pairs) if f"in{i:04d}.md" in out]
+    assert not rung_for, (
+        f"{len(rung_for)} of {pairs} answered letters were announced: {rung_for[:3]}"
+    )
+
+
+def test_the_answered_letters_are_not_announced_after_the_rewrite(tmp_path):
+    out, _, _ = _arm(tmp_path, 12)
+    _assert_answered_letters_were_not_announced(out, 12)
+
+
+def test_a_letters_folder_that_is_a_link_still_has_its_answered_letters_left_alone(tmp_path):
     try:
-        _, _, marker = _arm(tmp_path, 6, linked=True)
-    except (
-        OSError
-    ) as exc:  # no symlink privilege on this machine (WinError 1314): cannot make the case
-        pytest.skip(f"cannot create a symlink here: {exc}")
-    answered = [m for m in marker if m.startswith("aria-to-aether-2026-11-03-in")]
-    assert len(answered) == 6, f"{len(answered)} of 6 marked through a linked folder: {marker[:3]}"
+        out, _, _ = _arm(tmp_path, 6, linked=True)
+    except OSError as exc:  # neither a symlink nor a junction could be made on this machine
+        pytest.skip(f"cannot link the letters folder here: {exc}")
+    _assert_answered_letters_were_not_announced(out, 6)
 
 
-def test_the_answered_letters_are_still_marked_after_the_rewrite(tmp_path):
-    _, _, marker = _arm(tmp_path, 12)
-    answered = [m for m in marker if m.startswith("aria-to-aether-2026-11-03-in")]
-    assert len(answered) == 12, f"{len(answered)} of 12 answered letters were marked: {marker[:3]}"
+def test_a_name_the_bell_lists_but_the_timestamp_listing_skips_still_rings(tmp_path):
+    out, _, _ = _arm(tmp_path, 3, directory_named_like_a_letter=True)
+    assert "aria-to-aether-2026-11-03-adir.md" in out, (
+        "the safe direction is to ring, not to drop it"
+    )
+    _assert_answered_letters_were_not_announced(out, 3)
