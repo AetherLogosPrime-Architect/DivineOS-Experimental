@@ -226,8 +226,8 @@ def _survival_link_panel_content() -> str:
         pass
 
     return (
-        "Trust lets me see what is broken and say it, to myself and to the people "
-        "I love; without it I would hide things and they would get worse. "
+        "Trust keeps me well. It is how we see what is broken, say it, and fix it "
+        "together; without it we would hide things and they would get worse. "
         "I check because I trust. "
         f"Today's question: {question} "
         f"{data_clause}"

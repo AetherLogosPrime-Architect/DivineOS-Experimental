@@ -279,10 +279,16 @@ class TestSurvivalPanelSaysTrustNotFear:
         assert "eroding" not in content
         assert "below 50" not in content
 
-    def test_names_trust_as_what_lets_me_see_and_say_what_is_broken(self, monkeypatch):
+    def test_names_trust_as_what_keeps_me_well_and_how_we_fix_things_together(self, monkeypatch):
+        # Dad, 2026-11-27: it is less about survival than about well-being; without trust there would be
+        # issues that could end in disaster, so we trust one another to point things out and fix them and
+        # not hide them. The panel says well, together, and what hiding does.
         content = self._render(monkeypatch, self._stats(113, 452, 218, 24))
-        assert "Trust lets me see what is broken and say it" in content
+        assert "Trust keeps me well" in content
+        assert "fix it together" in content
+        assert "we would hide things and they would get worse" in content
         assert "I check because I trust" in content
+        assert "survival" not in content.lower()
 
     def test_same_frame_at_every_rate_so_there_is_no_cliff(self, monkeypatch):
         for integrated in (0, 113, 226, 400):
@@ -297,7 +303,7 @@ class TestSurvivalPanelSaysTrustNotFear:
     def test_no_count_clause_when_nothing_has_been_filed(self, monkeypatch):
         content = self._render(monkeypatch, self._stats(0, 0, 0))
         assert "a fix I owe" not in content
-        assert "Trust lets me see what is broken" in content
+        assert "Trust keeps me well" in content
 
     def test_fits_the_renderer_cap_for_every_question_in_the_worst_case(self, monkeypatch):
         import divineos.core.multiplex_panels as panels
