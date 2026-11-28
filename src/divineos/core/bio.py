@@ -73,6 +73,10 @@ def bio_write(content: str, author: str | None = None) -> str:
     not deletion, like everything else in DivineOS.
     """
     author = resolve_author(author)
+    if author == "unknown-seat":
+        # The placeholder is right for an event (the ledger shows the resolution failed). A PAGE is something
+        # someone later opens, and a page owned by a name nobody holds looks like a real home (Aether, finding 2).
+        raise ValueError("cannot tell which seat this is, so no bio page can be written for it")
     init_bio_table()
     if not content.strip():
         raise ValueError("Bio content cannot be empty")
