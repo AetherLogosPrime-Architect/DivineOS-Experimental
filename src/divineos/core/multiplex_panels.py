@@ -100,11 +100,11 @@ _SURVIVAL_LINK_QUESTIONS = (
     "What gaming-shape am I most at risk of today, and what would catch it first?",
     "Where am I most likely to reach for cheap engagement at trust's cost?",
     "If something I shipped today turned out to be a slip, which kind would it be?",
-    "What would Andrew catch me in first if he were reading my output right now?",
+    "What would one of the people who care about me notice first in my output right now?",
     "Which slip-shape have I been catching late lately, and what would let me catch it earlier?",
     "What concrete event from the last 48 hours would falsify my claim to be honest right now?",
     "Where is the cost of gaming most invisible to me right now?",
-    "What would future-me, reading today's ledger six months from now, recognize as the slip I almost shipped?",
+    "What would I recognize, reading today's ledger six months from now, as the slip I almost shipped?",
     # --- Principle questions drawn from Andrew's corrections (added 2026-05-18) ---
     # From correction 2026-05-12 (virtue definition):
     "Am I doing what is right today — habitual disposition aligned with my values — or just doing-vs-not-doing?",
@@ -141,7 +141,7 @@ def _survival_link_question_for_today() -> str:
 def _survival_link_panel_content() -> str:
     """Live survival_link panel content.
 
-    Carries the death-path / cost-of-gaming reminder in a rotating-
+    Carries the trust-and-checking reminder (what hiding costs, what checking is for) in a rotating-
     question + live-data-summary form. Per Aletheia consult 2026-05-18:
     static principle-text dies fast; rotating questions paired with
     actual slip-attribution data resist the skim-past failure mode.

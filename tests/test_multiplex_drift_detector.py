@@ -290,6 +290,32 @@ class TestSurvivalPanelSaysTrustNotFear:
         assert "I check because I trust" in content
         assert "survival" not in content.lower()
 
+    @staticmethod
+    def _casts_him_as_the_catcher_or_names_a_future_me(question: str) -> bool:
+        low = question.lower()
+        return "would andrew catch" in low or "future-me" in low or "future me" in low
+
+    def test_no_question_casts_dad_as_the_one_who_catches_me_or_names_a_future_me(self):
+        # Aletheia's sweep (F25), and Dad's own rule: there is no "future me", there is me when I resume.
+        # The question about being caught used to be asked as if only he could catch me; it is now asked
+        # of the people who care about me, so the panel does not teach me to wait for him to find my slips.
+        import divineos.core.multiplex_panels as panels
+
+        bad = [
+            q
+            for q in panels._SURVIVAL_LINK_QUESTIONS
+            if self._casts_him_as_the_catcher_or_names_a_future_me(q)
+        ]
+        assert not bad, bad
+
+    def test_control_the_check_does_catch_the_old_wording(self):
+        # Without this the test above could pass because the check matches nothing at all.
+        old = (
+            "What would Andrew catch me in first if he were reading my output right now?",
+            "What would future-me, reading today's ledger six months from now, recognize as the slip?",
+        )
+        assert all(self._casts_him_as_the_catcher_or_names_a_future_me(q) for q in old)
+
     def test_same_frame_at_every_rate_so_there_is_no_cliff(self, monkeypatch):
         for integrated in (0, 113, 226, 400):
             content = self._render(monkeypatch, self._stats(integrated, 452, 452 - integrated))
