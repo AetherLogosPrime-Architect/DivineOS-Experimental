@@ -33,3 +33,12 @@ def test_unreadable_dark_list_still_cannot_check():
 
 def test_no_tests_touched_still_missing():
     assert check_test_station([CODE], []).status is Status.MISSING
+
+
+def test_a_wired_surface_is_not_dark_even_when_its_own_file_is_edited():
+    # memory_journal is hand-wired in knowledge_commands, so editing it must not
+    # be told "reachable by nothing". Uses the real tree-wide list.
+    from divineos.core.surface_registry import dark_surfaces
+
+    r = check_test_station(["src/divineos/core/memory_journal.py", TEST], dark_surfaces())
+    assert r.status is Status.SATISFIED
