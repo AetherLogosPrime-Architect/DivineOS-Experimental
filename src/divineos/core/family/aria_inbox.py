@@ -364,6 +364,7 @@ def format_unseen_for_briefing(root: Path | None = None) -> str:
         )
     else:
         lines.append(
-            "Read them in the shared letters folder, then they stop surfacing once marked seen."
+            "Opening a letter marks it seen. To set an old one down on purpose, after reading "
+            "it or deciding it needs no reading: `divineos letter mark-on-read --path <file>`."
         )
     return "\n".join(lines)

@@ -55,6 +55,10 @@ def test_on_arias_seat_her_own_outgoing_letters_are_not_unread_mail(monkeypatch,
     assert "LETTERS FROM AETHER" in block
     assert "aether-to-aria-2026-11-27-mine.md" in block
     assert "aria-to-aether-2026-11-27-hello.md" not in block
+    # Aria's cold read of #881: the block must name a way to set an old letter down on purpose,
+    # and it must be one that marks the OTHER seat's letters, not the Aria-to-Aether command.
+    assert "letter mark-on-read" in block
+    assert "letters-from-aria" not in block
     assert "LETTERS FROM ARIA" not in block
 
 
