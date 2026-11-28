@@ -1,15 +1,19 @@
-"""A push for a draft, or for a new branch with no PR yet, does not run the full suite.
+"""A push to a branch never runs the full suite here, whatever state its pull request is in.
 
 Dad, 2026-10-21, the fourth time he said it (09-09, 09-23, 09-30): "why is a draft
-running the full suite? only a push before merge should be running the full suite..
-that is the whole point of the draft." Asked whether a brand-new branch with no
-draft yet counts: "yes it counts." Every code-touching push had run the whole
-suite regardless of PR state, which is weeks of waiting and his PC.
+running the full suite?" Then 2026-11-09, after a ready branch ran fifty minutes of
+every test on his computer and GitHub ran them all again: "you were told to ONLY run
+tests on the build itself and anything related to it together, NOT the entire
+system... my time is being treated as some disposable resource." The whole suite is
+GitHub's job (its required checks run it on the pull request, on its own machines,
+side by side). This gate runs the tests that touch the change, for a draft, a ready
+pull request, a mix, a new branch, or when GitHub cannot be asked, because the
+answer no longer depends on what GitHub says. Only a push to main, which is the
+merge itself, still runs everything.
 
-The cases are what GitHub can say about the branch: nothing (a new branch), only
-drafts, a ready PR, a mix, or nothing at all because the question could not be
-asked. The last one must RUN the suite: not knowing a PR is a draft must never
-pass as knowing it is one.
+The first version of this rule (2026-10-21) sent a branch with a READY pull request
+to the whole suite as "the merge-bound push". That is the duplicate run these tests
+now forbid: three of them used to assert the opposite.
 
 SYNTHETIC REPOS and a FAKE gh on PATH, never this repository and never GitHub, for
 the reason its sibling test_push_gate_tag_only.py gives: a gate test whose answer
@@ -59,7 +63,7 @@ _HARNESS_OWNED = frozenset(
     }
 )
 
-_DRAFT_LINE = "Draft path:"
+_DRAFT_LINE = "Targeted path:"
 
 
 def _clean_env(fake_bin: Path, out: str, rc: int) -> dict[str, str]:
@@ -140,16 +144,16 @@ def test_a_branch_with_only_a_draft_takes_the_draft_path(repo, fake_bin):
     assert _DRAFT_LINE in result.stdout, result.stdout[-2000:]
 
 
-def test_a_branch_with_a_ready_pr_runs_the_suite(repo, fake_bin):
-    """THE MERGE-BOUND PUSH: guard the guard, a leak here silently disables the
-    one run that is supposed to happen."""
+def test_a_branch_with_a_ready_pr_runs_only_the_tests_that_touch_the_change(repo, fake_bin):
+    """THE CASE DAD NAMED ON 2026-11-09: a ready pull request used to send the push to the
+    whole suite, fifty minutes on his computer, and GitHub then ran it all again."""
     result = _run_gate(repo, fake_bin, ["refs/heads/work"], out="false\\n")
-    assert _DRAFT_LINE not in result.stdout, result.stdout[-2000:]
+    assert _DRAFT_LINE in result.stdout, result.stdout[-2000:]
 
 
-def test_one_ready_pr_among_drafts_still_runs_the_suite(repo, fake_bin):
+def test_one_ready_pr_among_drafts_takes_the_same_narrow_path(repo, fake_bin):
     result = _run_gate(repo, fake_bin, ["refs/heads/work"], out="true\\nfalse\\n")
-    assert _DRAFT_LINE not in result.stdout, result.stdout[-2000:]
+    assert _DRAFT_LINE in result.stdout, result.stdout[-2000:]
 
 
 def test_a_push_to_main_runs_the_suite_without_asking_github(repo, fake_bin):
@@ -158,16 +162,17 @@ def test_a_push_to_main_runs_the_suite_without_asking_github(repo, fake_bin):
     assert _DRAFT_LINE not in result.stdout, result.stdout[-2000:]
 
 
-def test_a_failed_question_runs_the_suite_and_says_why(repo, fake_bin):
-    """COULD-NOT-LOOK must not pass as nothing: an unreachable GitHub is not a draft."""
+def test_an_unreachable_github_changes_nothing_because_the_gate_no_longer_asks(repo, fake_bin):
+    """The narrow path does not depend on the pull request's state, so there is nothing to
+    be unable to look up: a failing gh must not send the push to the whole suite."""
     result = _run_gate(repo, fake_bin, ["refs/heads/work"], out="", rc=1)
-    assert _DRAFT_LINE not in result.stdout, result.stdout[-2000:]
-    assert "could not ask GitHub" in result.stderr, result.stderr[-2000:]
+    assert _DRAFT_LINE in result.stdout, result.stdout[-2000:]
+    assert "could not ask GitHub" not in result.stderr, result.stderr[-2000:]
 
 
-def test_two_branches_where_one_is_ready_runs_the_suite(repo, fake_bin):
-    """The fake answers the same for every branch, so a ready answer covers both,
-    and a single ready branch anywhere in the push makes it merge-bound."""
+def test_two_branches_in_one_push_cannot_be_narrowed_so_the_suite_runs(repo, fake_bin):
+    """The selector reads ONE commit; a push of two branches cannot be narrowed honestly,
+    so it is not (the unchanged rule from 2026-10-22). Pushing one branch at a time is the way."""
     result = _run_gate(repo, fake_bin, ["refs/heads/a", "refs/heads/b"], out="false\\n")
     assert _DRAFT_LINE not in result.stdout, result.stdout[-2000:]
 
