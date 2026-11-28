@@ -115,6 +115,7 @@ src/divineos/
     psf_commands.py            pending structural-fix obligations (list, mark-done)
     question_hold_commands.py  question-hold / release: see or escape the wait a question to Dad opens
     reach_commands.py          reach-check — surface prior work, then prove it was opened
+    reflection_note_commands.py  reflection-note — file a work turn's stumbles in my own place, owed lines becoming structural fixes
     obligation_commands.py     obligations check / is-write / list / disabled — substrate-write CLI surface for the obligation gate (#33 + #42 unified hook)
     synchronicity_commands.py  synchronicity — temporal co-occurrence detector (Pillar VI)
     voids_commands.py          voids — knowledge-void detector (Pillar VI cosmic-voids pull)
@@ -565,6 +566,7 @@ src/divineos/
     reflection_storage.py      Reflection storage — per-axis honest reflection capture.
     session_type.py            Session-type classifier — variety attenuation for the reflection surface.
     reflection_pairing.py      Reflection pairing — substrate lays the sources side-by-side; agent does the metacognition.
+    reflection_room.py         What stumbled this work turn: read from the log and taken up in the REFLECTION, or filed in my own place with reflection-note.
     prereg_candidate_surface.py Pre-registration candidate surface — forcing function for the prereg discipline.
     archive_export.py          Archive export — regenerates docs/archives/*.md from canonical SQLite.
     briefing_freshness.py      Briefing-freshness tracker — make briefing-loading load-bearing
