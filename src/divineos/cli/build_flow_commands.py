@@ -109,9 +109,14 @@ def _gh(args: list[str]) -> str | None:
 _DARK_PROBE = (
     "import json\n"
     "import divineos.core.surface_bridge  # registers surfaces\n"
-    "from divineos.core.surface_registry import dark_surfaces\n"
-    "print(json.dumps(sorted(dark_surfaces())))\n"
+    "from divineos.core import surface_registry as sr\n"
+    "failed = sr.discover()\n"
+    "print(json.dumps({'dark': sorted(sr.dark_surfaces()), 'failed': failed}))\n"
 )
+
+# Answers read in this process, clean ones included: within one board run a commit is read once.
+# Never written to disk when clean (see dark_at); None is never remembered.
+_DARK_MEMO: dict[tuple[str, str], list[str]] = {}
 
 
 def dark_at(repo: Path, sha: str, cache_dir: Path) -> list[str] | None:
@@ -119,15 +124,26 @@ def dark_at(repo: Path, sha: str, cache_dir: Path) -> list[str] | None:
 
     The board used to read this from whatever checkout it ran in, which is never the
     pull request's code: comparing a branch with main means evaluating each tree for
-    real. A commit's tree never changes, so the answer is cached by sha. None means
-    could-not-read (unknown commit, a tree whose registry will not load, a timeout) and
-    is never collapsed into an empty list, which would read as a clean bill of health.
+    real. None means could-not-read (unknown commit, a tree whose registry will not load,
+    a timeout, or ANY module that fails to import) and is never collapsed into an empty
+    list, which would read as a clean bill of health.
+
+    Two false-clean holes, both found by Aria's cold read of #884 (2026-11-28). First: the
+    registry skips a module whose import raises, so a newly dark surface that cannot import
+    would read clean; the probe asks discover() for the failures and any failure is
+    could-not-read. Second: a clean answer is never believed from, or written to, a file on
+    disk, because a false clean written once would be final; only dark answers are cached by
+    sha (a wrong dark answer fails loud, a wrong clean one fails silent).
     """
+    memo_key = (str(repo), sha)
+    if memo_key in _DARK_MEMO:
+        return _DARK_MEMO[memo_key]
     cached = cache_dir / f"{sha}.json"
     try:
         if cached.exists():
             value = json.loads(cached.read_text(encoding="utf-8"))
-            return value if isinstance(value, list) else None
+            if isinstance(value, list) and value:
+                return value
     except (OSError, json.JSONDecodeError):
         pass
     import io
@@ -164,17 +180,24 @@ def dark_at(repo: Path, sha: str, cache_dir: Path) -> list[str] | None:
     if probe.returncode != 0:
         return None
     try:
-        value = json.loads(probe.stdout.strip().splitlines()[-1])
+        answer = json.loads(probe.stdout.strip().splitlines()[-1])
     except (IndexError, json.JSONDecodeError):
         return None
-    if not isinstance(value, list):
+    if (
+        not isinstance(answer, dict)
+        or answer.get("failed")
+        or not isinstance(answer.get("dark"), list)
+    ):
         return None
-    try:
-        cache_dir.mkdir(parents=True, exist_ok=True)
-        cached.write_text(json.dumps(value), encoding="utf-8")
-    except OSError:
-        pass
-    return value
+    dark_names: list[str] = [str(name) for name in answer["dark"]]
+    _DARK_MEMO[memo_key] = dark_names
+    if dark_names:
+        try:
+            cache_dir.mkdir(parents=True, exist_ok=True)
+            cached.write_text(json.dumps(dark_names), encoding="utf-8")
+        except OSError:
+            pass
+    return dark_names
 
 
 _DARK_CACHE = Path.home() / ".divineos" / "cache" / "dark_at"
