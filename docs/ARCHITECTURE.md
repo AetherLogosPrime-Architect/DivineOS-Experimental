@@ -11,7 +11,7 @@ src/divineos/
   __init__.py                  Package init
   __main__.py                  python -m divineos entry point
   seed.json                    Initial knowledge seed (versioned)
-  cli/                         CLI package (522 commands across 122 modules)
+  cli/                         CLI package (526 commands across 122 modules)
     __init__.py                Entry point and command registration
     _helpers.py                Shared CLI utilities
     _wrappers.py               Output formatting wrappers
@@ -790,6 +790,7 @@ src/divineos/
     hold_log.py                A record of each time the room hold and the follow-through hold stopped a reply or let one pass.
     stall_on_promise.py        A promise to act is followed by the act, when no one is there to push.
     memory_linkage_own_words.py The memory link, read through what I said last turn, apart from what he said.
+    os_file_lock.py            One writer at a time on a small file, by the operating system's own lock.
 
   analysis/
     _session_types.py          Session analysis type definitions

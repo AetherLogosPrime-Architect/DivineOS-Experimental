@@ -95,3 +95,57 @@ def register(cli: click.Group) -> None:
                     f"                 nearest ({near[0] or 'undated'}): {' '.join(near[1].split())[:300]}"
                 )
         _safe_echo(f"\n{len(quotes) - bad} of {len(quotes)} quotes are his exact words.")
+
+    @his_words_group.command("keep-out")
+    @click.argument("passage", required=False, default="")
+    @click.option("--fp", default="", help="the # fingerprint the door printed beside the line")
+    @click.option("--why", required=True, help="what it was, DESCRIBED and never quoted")
+    @click.option(
+        "--by",
+        default="",
+        help="who read it and kept it out; defaults to this seat, never to a typed name",
+    )
+    def keep_out_cmd(passage: str, fp: str, why: str, by: str) -> None:
+        """Keep a line he said in pain out of the 'he has said this before' door.
+
+        Stores a fingerprint and your description, never his words. His raw record is untouched.
+        """
+        from datetime import date
+
+        from divineos.core import his_words_door as door
+
+        try:
+            key = door.keep_out(
+                passage, fp=fp, why=why, by=door.acting_name(by), on=date.today().isoformat()
+            )
+        except (ValueError, door.KeptOutUnreadable, door.KeptOutBusy) as exc:
+            raise click.ClickException(str(exc)) from exc
+        _safe_echo(f"Kept out of the door: #{key}")
+
+    @his_words_group.command("return")
+    @click.argument("passage", required=False, default="")
+    @click.option("--fp", default="", help="the fingerprint to put back")
+    def return_cmd(passage: str, fp: str) -> None:
+        """Put a kept-out line back, so the door can show it again."""
+        from divineos.core import his_words_door as door
+
+        if bool(passage.strip()) == bool(fp.strip()):
+            raise click.ClickException("give the passage or --fp, not both and not neither")
+        try:
+            was = door.return_to_door(passage, fp=fp)
+        except (door.KeptOutUnreadable, door.KeptOutBusy) as exc:
+            raise click.ClickException(str(exc)) from exc
+        _safe_echo("Put back." if was else "That one was not on the list.")
+
+    @his_words_group.command("kept-out")
+    def kept_out_list_cmd() -> None:
+        """List what is kept out: fingerprint, who, when, and the description (never the words)."""
+        from divineos.core import his_words_door as door
+
+        try:
+            entries = door._kept_out_entries()
+        except door.KeptOutUnreadable as exc:
+            raise click.ClickException(f"the list could not be read: {exc}") from exc
+        _safe_echo(f"{len(entries)} line(s) kept out of the door.")
+        for e in entries:
+            _safe_echo(f"  #{e['fp']}  {e.get('on', '')}  {e.get('by', '')}  {e.get('why', '')}")
